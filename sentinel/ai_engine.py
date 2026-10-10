@@ -298,7 +298,7 @@ def process_chat_turn(user_text: str) -> Dict[str, Any]:
         )
 
         # Conversational Progressive Response
-        questions_formatted = "\n".join([f"- {q}" for q in research["clarification_questions"][:3]])
+        questions_formatted = "\n".join([f"{q}" for q in research["clarification_questions"][:3]])
         formatted_date = target_deadline[:16].replace('T', ' ')
         content = (
             f"I have digested the links for **{event_title}**.\n\n"
