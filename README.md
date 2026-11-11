@@ -1,4 +1,3 @@
-# CHRONOS // Autonomous Event Deadline Sentinel & MCP Orchestrator
 
 ```
    ██████╗██╗  ██╗██████╗  ██████╗ ███╗   ██╗ ██████╗ ███████╗
