@@ -7,7 +7,7 @@ Task Decomposer, MCP Integrator, Internal Calendar, and Executive Notifications.
 import os
 from contextlib import asynccontextmanager
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -16,10 +16,11 @@ from sentinel.db import (
     init_db, create_event, get_events, get_event, delete_event,
     add_event_link, update_event_link, get_event_links,
     save_event_research, get_event_research,
-    create_task, get_tasks, update_task_status, delete_task,
+    create_task, get_tasks, update_task_status, update_task, get_task_stats, delete_task,
     save_mcp_config, get_mcp_configs, update_mcp_status,
     create_reminder, get_reminders, mark_reminders_read
 )
+from sentinel.integrations import gcal_connector, whatsapp_connector, agent_tool_builder
 from sentinel.scraper import scrape_event_url
 from sentinel.ai_engine import (
     synthesize_research, generate_phased_tasks, generate_non_nosy_briefing,
@@ -65,8 +66,23 @@ class TaskCreateRequest(BaseModel):
     priority: Optional[str] = "high"
     assigned_mcp: Optional[str] = ""
 
+class TaskUpdateRequest(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    phase: Optional[str] = "Phase 1: Setup"
+    due_date: Optional[str] = ""
+    priority: Optional[str] = "high"
+    assigned_mcp: Optional[str] = ""
+
 class TaskStatusUpdateRequest(BaseModel):
     status: str
+
+class ToolTestRequest(BaseModel):
+    parameters: Optional[dict] = {}
+
+class WhatsAppSendRequest(BaseModel):
+    recipient: Optional[str] = "+15550199"
+    event_id: Optional[int] = None
 
 class LinkAddRequest(BaseModel):
     url: str
@@ -277,6 +293,10 @@ def refine_tasks_with_user_focus(event_id: int, req: ResearchRefineRequest):
 def list_tasks(event_id: Optional[int] = Query(None)):
     return get_tasks(event_id)
 
+@app.get("/api/tasks/stats")
+def fetch_task_stats(event_id: Optional[int] = Query(None)):
+    return get_task_stats(event_id)
+
 @app.post("/api/tasks")
 def add_custom_task(req: TaskCreateRequest):
     task_id = create_task(
@@ -290,6 +310,21 @@ def add_custom_task(req: TaskCreateRequest):
     )
     return {"status": "created", "task_id": task_id}
 
+@app.put("/api/tasks/{task_id}")
+def update_task_endpoint(task_id: int, req: TaskUpdateRequest):
+    success = update_task(
+        task_id=task_id,
+        title=req.title,
+        description=req.description or "",
+        phase=req.phase or "Phase 1: Setup",
+        due_date=req.due_date or "",
+        priority=req.priority or "high",
+        assigned_mcp=req.assigned_mcp or ""
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"status": "updated", "task_id": task_id}
+
 @app.patch("/api/tasks/{task_id}/status")
 def patch_task_status(task_id: int, req: TaskStatusUpdateRequest):
     update_task_status(task_id, req.status)
@@ -299,6 +334,88 @@ def patch_task_status(task_id: int, req: TaskStatusUpdateRequest):
 def remove_task(task_id: int):
     delete_task(task_id)
     return {"status": "deleted", "task_id": task_id}
+
+# ── Agent Tool Builder Endpoints (/agent-tool-builder compliant) ─────
+
+@app.get("/api/tools/catalog")
+def list_agent_tools():
+    """Returns the comprehensive schema catalogue for all agent tools."""
+    return agent_tool_builder.get_catalog()
+
+@app.post("/api/tools/{tool_id}/test")
+def test_agent_tool(tool_id: str, req: ToolTestRequest):
+    """Executes a diagnostic test run for an Agent Tool with latency & stdout metrics."""
+    res = agent_tool_builder.execute_tool_test(tool_id, req.parameters)
+    return res
+
+# ── Integrations: Google Calendar & WhatsApp Cloud ──────────────────
+
+@app.get("/api/integrations/status")
+def get_all_integrations_status():
+    """Returns status of external connectors."""
+    return {
+        "google_calendar": gcal_connector.get_status(),
+        "whatsapp": whatsapp_connector.get_status()
+    }
+
+@app.post("/api/integrations/google-calendar/sync")
+def sync_google_calendar(event_id: Optional[int] = Query(None)):
+    """Synchronizes tasks & milestones for an event to Google Calendar."""
+    events = get_events()
+    target_event = None
+    if event_id:
+        target_event = get_event(event_id)
+    elif events:
+        target_event = events[0]
+        
+    if not target_event:
+        raise HTTPException(status_code=400, detail="No active event found to synchronize.")
+        
+    tasks = get_tasks(target_event["id"])
+    result = gcal_connector.sync_milestones(target_event["title"], tasks)
+    return result
+
+@app.post("/api/integrations/whatsapp/send")
+def send_whatsapp_digest(req: WhatsAppSendRequest):
+    """Dispatches real-time executive WhatsApp briefing to designated phone."""
+    events = get_events()
+    target_event = None
+    if req.event_id:
+        target_event = get_event(req.event_id)
+    elif events:
+        target_event = events[0]
+        
+    if not target_event:
+        raise HTTPException(status_code=400, detail="No active event found to send briefing for.")
+        
+    tasks = get_tasks(target_event["id"])
+    pending = [t for t in tasks if t.get("status") != "done"]
+    res = whatsapp_connector.send_executive_briefing(
+        recipient=req.recipient or "+15550199",
+        title=target_event["title"],
+        deadline=target_event["deadline"],
+        pending_tasks=pending
+    )
+    return res
+
+@app.get("/api/webhook/whatsapp")
+def verify_whatsapp_webhook(
+    hub_mode: Optional[str] = Query(None, alias="hub.mode"),
+    hub_verify_token: Optional[str] = Query(None, alias="hub.verify_token"),
+    hub_challenge: Optional[str] = Query(None, alias="hub.challenge")
+):
+    """Meta webhook verification endpoint."""
+    challenge = whatsapp_connector.verify_webhook(hub_mode, hub_verify_token, hub_challenge)
+    if challenge:
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(content=challenge, status_code=200)
+    raise HTTPException(status_code=403, detail="Verification token mismatch")
+
+@app.post("/api/webhook/whatsapp")
+async def handle_whatsapp_webhook(request: Request):
+    """Meta incoming WhatsApp message / event receiver."""
+    body = await request.json()
+    return {"status": "received", "data": body}
 
 @app.get("/api/mcps")
 def list_mcps(event_id: Optional[int] = Query(None)):
