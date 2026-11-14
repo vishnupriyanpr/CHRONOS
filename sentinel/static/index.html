@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CHRONOS — Autonomous Deadline Sentinel &amp; MCP Orchestrator</title>
-  
-  <!-- Premium Fonts: Satoshi Bold + Plus Jakarta Sans + JetBrains Mono -->
+  <title>CHRONOS</title>
+
+  <!-- Fonts: Satoshi Bold + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@700,800,900&display=swap">
-  
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,800,900&display=swap">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -18,472 +18,372 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Satoshi', 'Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            sans: ['Satoshi', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace'],
           },
           colors: {
             border: '#e4e4e7',
             input: '#e4e4e7',
-            ring: '#18181b',
+            ring: '#111111',
             background: '#ffffff',
-            foreground: '#09090b',
-            primary: {
-              DEFAULT: '#09090b',
-              foreground: '#ffffff',
-            },
-            secondary: {
-              DEFAULT: '#f4f4f5',
-              foreground: '#18181b',
-            },
-            muted: {
-              DEFAULT: '#f4f4f5',
-              foreground: '#71717a',
-            },
-            card: {
-              DEFAULT: '#ffffff',
-              foreground: '#09090b',
-            },
+            foreground: '#111111',
+            primary: { DEFAULT: '#111111', foreground: '#ffffff' },
+            secondary: { DEFAULT: '#f4f4f5', foreground: '#111111' },
+            muted: { DEFAULT: '#f4f4f5', foreground: '#71717a' },
+            card: { DEFAULT: '#ffffff', foreground: '#111111' },
           },
-          boxShadow: {
-            '2xs': '0 1px 2px 0 rgba(0, 0, 0, 0.04)',
-            'xs': '0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06)',
-            'subtle': '0 2px 6px 0 rgba(0, 0, 0, 0.05)',
-            'card': '0 4px 8px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04)',
-          }
+          borderRadius: { '2xl': '12px' },
         },
       },
     }
   </script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="bg-white text-zinc-950 font-sans antialiased h-screen flex overflow-hidden selection:bg-zinc-900 selection:text-white font-bold">
+<body class="bg-white text-[#111] font-sans antialiased h-screen flex overflow-hidden selection:bg-[#111] selection:text-white">
 
-  <!-- LEFT TELEMETRY RADAR & NAVIGATION SIDEBAR (PaceUI Sidebar Pattern) -->
-  <aside id="sidebar" class="w-80 lg:w-88 border-r border-zinc-200/90 bg-zinc-50/70 flex flex-col shrink-0 h-full overflow-hidden transition-all duration-200 z-30">
-    
-    <!-- Sidebar Header: Brand & Status -->
-    <div class="h-18 border-b border-zinc-200/90 px-6 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-md">
-      <div class="flex items-center gap-3.5">
-        <div class="size-9 rounded-xl bg-zinc-950 flex items-center justify-center text-white shadow-xs shrink-0">
-          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="w-72 border-r border-[#e4e4e7] bg-white flex flex-col shrink-0 h-full overflow-hidden transition-all duration-200 z-30">
+
+    <!-- Sidebar Header -->
+    <div class="h-16 border-b border-[#e4e4e7] px-6 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="size-8 rounded-lg bg-[#111] flex items-center justify-center text-white shrink-0">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <span class="text-base font-extrabold tracking-tight uppercase text-zinc-950">CHRONOS</span>
-            <span class="text-[14px] font-mono font-bold text-zinc-500">v1.4</span>
-          </div>
-          <div class="flex items-center gap-1.5 text-[14px] text-zinc-600 font-bold">
-            <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Daemon Online</span>
+          <span class="text-[15px] font-extrabold tracking-tight uppercase text-[#111]">CHRONOS</span>
+          <div class="flex items-center gap-1.5 text-[13px] font-mono text-zinc-500">
+            <span class="size-1.5 rounded-full bg-emerald-500"></span>
+            <span>Online</span>
           </div>
         </div>
       </div>
-      <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-zinc-200 text-zinc-600 cursor-pointer">
-        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      <button onclick="toggleSidebar()" class="lg:hidden p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 cursor-pointer">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
 
-    <!-- Sidebar Scrollable Body -->
-    <div class="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-thin">
-      
-      <!-- View Navigation Tabs -->
-      <div class="space-y-1.5">
-        <div class="px-2 pb-1 text-[14px] font-mono font-bold uppercase tracking-wider text-zinc-500">Workspace Navigation</div>
-        <button onclick="switchView('chat')" id="nav-chat" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-bold bg-zinc-950 text-white transition-all shadow-2xs cursor-pointer pace-interactive">
-          <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-          <span class="flex-1 text-left">Chat Sentinel</span>
-          <span class="size-2 rounded-full bg-emerald-400"></span>
+    <!-- Sidebar Body -->
+    <div class="flex-1 overflow-y-auto py-6 space-y-8 scrollbar-thin">
+
+      <!-- Navigation -->
+      <div class="px-5 space-y-1">
+        <div class="px-3 pb-2 text-[12px] font-mono font-semibold uppercase tracking-widest text-zinc-400">Navigation</div>
+        <button onclick="switchView('chat')" id="nav-chat" class="nav-btn nav-btn-active w-full flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-bold cursor-pointer transition-all">
+          <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span class="flex-1 text-left">Chat</span>
         </button>
-        <button onclick="switchView('matrix')" id="nav-matrix" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-bold text-zinc-800 hover:bg-zinc-200/80 hover:text-zinc-950 transition-all cursor-pointer pace-interactive">
-          <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-          <span class="flex-1 text-left">Timeline Matrix</span>
-          <span id="sidebar-task-count" class="font-mono text-[14px] px-2 py-0.5 rounded-md bg-zinc-200 text-zinc-800">0</span>
+        <button onclick="switchView('matrix')" id="nav-matrix" class="nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-bold text-zinc-600 hover:bg-zinc-50 hover:text-[#111] cursor-pointer transition-all">
+          <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span class="flex-1 text-left">Timeline</span>
+          <span id="sidebar-task-count" class="font-mono text-[12px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600">0</span>
         </button>
-        <button onclick="switchView('mcps')" id="nav-mcps" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-bold text-zinc-800 hover:bg-zinc-200/80 hover:text-zinc-950 transition-all cursor-pointer pace-interactive">
-          <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-          <span class="flex-1 text-left">MCP Orchestrator</span>
-          <span id="sidebar-mcp-count" class="font-mono text-[14px] px-2 py-0.5 rounded-md bg-zinc-200 text-zinc-800">0</span>
+        <button onclick="switchView('mcps')" id="nav-mcps" class="nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-bold text-zinc-600 hover:bg-zinc-50 hover:text-[#111] cursor-pointer transition-all">
+          <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          <span class="flex-1 text-left">MCPs</span>
+          <span id="sidebar-mcp-count" class="font-mono text-[12px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600">0</span>
         </button>
-        <button onclick="switchView('channels')" id="nav-channels" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-bold text-zinc-800 hover:bg-zinc-200/80 hover:text-zinc-950 transition-all cursor-pointer pace-interactive">
-          <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-          <span class="flex-1 text-left">Social Dispatcher</span>
-          <span id="sidebar-channel-badge" class="size-2 rounded-full bg-zinc-400"></span>
+        <button onclick="switchView('channels')" id="nav-channels" class="nav-btn w-full flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-bold text-zinc-600 hover:bg-zinc-50 hover:text-[#111] cursor-pointer transition-all">
+          <svg class="size-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          <span class="flex-1 text-left">Channels</span>
+          <span id="sidebar-channel-badge" class="size-2 rounded-full bg-zinc-300"></span>
         </button>
       </div>
 
-      <!-- Live Deadline Radar Card (PaceUI Stat Card) -->
-      <div class="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-xs space-y-4">
-        <div class="flex items-center justify-between">
-          <span class="text-[14px] font-mono font-bold uppercase tracking-wider text-zinc-500">DEADLINE RADAR</span>
-          <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[14px] font-mono font-bold bg-zinc-100 text-zinc-800 border border-zinc-200">ACTIVE</span>
-        </div>
+      <!-- Divider -->
+      <div class="mx-5 border-t border-[#e4e4e7]"></div>
 
-        <div id="radar-event-title" class="text-[15px] font-extrabold text-zinc-950 leading-snug truncate">
-          Hackathon Milestone Target
-        </div>
-
-        <!-- Real-time Ticking Countdown Chip -->
-        <div class="bg-zinc-950 text-white rounded-xl p-3.5 space-y-1 font-mono text-center shadow-xs">
-          <div class="text-[14px] text-zinc-400 uppercase tracking-wider font-bold">T-Minus Remaining</div>
-          <div id="radar-countdown" class="text-xl font-extrabold tracking-tight text-white">
-            --d --h --m --s
+      <!-- Model Activity -->
+      <div class="px-5 space-y-3">
+        <div class="px-3 text-[12px] font-mono font-semibold uppercase tracking-widest text-zinc-400">Model Activity</div>
+        <div id="model-activity" class="px-3 space-y-2">
+          <div id="model-activity-bar" class="h-1 rounded-full bg-zinc-100 overflow-hidden">
+            <div id="model-activity-fill" class="h-full bg-zinc-300 w-0 transition-all duration-300"></div>
           </div>
-        </div>
-
-        <!-- Progress Track -->
-        <div class="space-y-2 pt-1">
-          <div class="flex items-center justify-between text-[14px] font-mono font-bold text-zinc-600">
-            <span>Milestone Progress</span>
-            <span id="radar-progress-pct" class="font-extrabold text-zinc-950">0%</span>
-          </div>
-          <div class="w-full h-2 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200/60">
-            <div id="radar-progress-bar" class="h-full bg-zinc-950 transition-all duration-300" style="width: 0%"></div>
-          </div>
+          <div id="model-activity-text" class="text-[13px] font-mono text-zinc-400">Model idle</div>
         </div>
       </div>
 
-      <!-- Quick Active MCP Tool Context Stack -->
-      <div class="space-y-2.5">
-        <div class="px-2 text-[14px] font-mono font-bold uppercase tracking-wider text-zinc-500">Tool Context Stack</div>
-        <div id="sidebar-mcp-list" class="space-y-2">
-          <div class="flex items-center justify-between p-3 rounded-xl border border-zinc-200/80 bg-white text-[14px]">
-            <div class="flex items-center gap-2.5">
-              <span class="size-2 rounded-full bg-emerald-500"></span>
-              <span class="font-bold text-zinc-950">GitHub MCP</span>
-            </div>
-            <span class="text-[14px] font-mono font-bold text-zinc-500">v0.6</span>
+      <!-- Divider -->
+      <div class="mx-5 border-t border-[#e4e4e7]"></div>
+
+      <!-- Deadline Radar -->
+      <div class="px-5 space-y-3">
+        <div class="px-3 text-[12px] font-mono font-semibold uppercase tracking-widest text-zinc-400">Deadline Radar</div>
+        <div class="mx-3 space-y-4">
+          <div id="radar-event-title" class="text-[14px] font-bold text-[#111] leading-snug truncate">
+            No active deadline
           </div>
-          <div class="flex items-center justify-between p-3 rounded-xl border border-zinc-200/80 bg-white text-[14px]">
-            <div class="flex items-center gap-2.5">
-              <span class="size-2 rounded-full bg-emerald-500"></span>
-              <span class="font-bold text-zinc-950">Firecrawl MCP</span>
-            </div>
-            <span class="text-[14px] font-mono font-bold text-zinc-500">v1.2</span>
+          <div id="radar-countdown" class="text-2xl font-extrabold font-mono tracking-tight text-[#111]">
+            --:--:--
           </div>
-          <div class="flex items-center justify-between p-3 rounded-xl border border-zinc-200/80 bg-white text-[14px]">
-            <div class="flex items-center gap-2.5">
-              <span class="size-2 rounded-full bg-emerald-500"></span>
-              <span class="font-bold text-zinc-950">DevTools MCP</span>
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-[12px] font-mono text-zinc-500">
+              <span>Progress</span>
+              <span id="radar-progress-pct" class="font-bold text-[#111]">0%</span>
             </div>
-            <span class="text-[14px] font-mono font-bold text-zinc-500">v0.4</span>
-          </div>
-          <div class="flex items-center justify-between p-3 rounded-xl border border-zinc-200/80 bg-white text-[14px]">
-            <div class="flex items-center gap-2.5">
-              <span class="size-2 rounded-full bg-emerald-500"></span>
-              <span class="font-bold text-zinc-950">SQLite MCP</span>
+            <div class="w-full h-1 rounded-full bg-zinc-100 overflow-hidden">
+              <div id="radar-progress-bar" class="h-full bg-[#111] transition-all duration-500" style="width: 0%"></div>
             </div>
-            <span class="text-[14px] font-mono font-bold text-zinc-500">v1.0</span>
           </div>
         </div>
       </div>
 
-      <!-- Telemetry Health Box -->
-      <div class="rounded-2xl border border-zinc-200/90 bg-white p-4 space-y-2.5 text-[14px] font-mono font-bold text-zinc-600">
-        <div class="flex items-center justify-between">
-          <span>Engine Telemetry</span>
-          <span class="text-zinc-950 font-extrabold">100% OK</span>
+      <!-- Divider -->
+      <div class="mx-5 border-t border-[#e4e4e7]"></div>
+
+      <!-- Tool Context Stack -->
+      <div class="px-5 space-y-3">
+        <div class="px-3 text-[12px] font-mono font-semibold uppercase tracking-widest text-zinc-400">Tool Stack</div>
+        <div id="sidebar-mcp-list" class="mx-3 space-y-2">
+          <!-- MCP items rendered by JS, max 3 shown -->
         </div>
-        <div class="flex items-center justify-between">
-          <span>Alert Frequency</span>
-          <span class="text-zinc-950">Quiet Mode (1/h)</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span>Persistence</span>
-          <span class="text-zinc-950">Local SQLite</span>
+        <div id="sidebar-mcp-more" class="hidden px-3 text-[13px] font-mono text-zinc-400 cursor-pointer hover:text-zinc-600" onclick="switchView('mcps')"></div>
+      </div>
+
+      <!-- Divider -->
+      <div class="mx-5 border-t border-[#e4e4e7]"></div>
+
+      <!-- Telemetry -->
+      <div class="px-5 space-y-2">
+        <div class="px-3 text-[12px] font-mono font-semibold uppercase tracking-widest text-zinc-400">Telemetry</div>
+        <div class="mx-3 space-y-1.5 text-[13px] font-mono text-zinc-500">
+          <div class="flex items-center justify-between">
+            <span>Engine</span>
+            <span class="text-[#111] font-semibold">OK</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Alerts</span>
+            <span class="text-[#111] font-semibold">Quiet</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Storage</span>
+            <span class="text-[#111] font-semibold">SQLite</span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Sidebar Footer -->
-    <div class="p-4 border-t border-zinc-200/90 bg-white/80 backdrop-blur-md shrink-0 flex items-center justify-between text-[14px] font-bold text-zinc-600">
-      <span class="font-mono text-[14px]">PORT 8000</span>
-      <button onclick="exportMcpConfig()" class="hover:text-zinc-950 font-bold text-[14px] underline cursor-pointer">Export Config</button>
+    <div class="px-6 py-3 border-t border-[#e4e4e7] shrink-0 flex items-center justify-between text-[12px] font-mono text-zinc-400">
+      <span>PORT 8000</span>
+      <button onclick="exportMcpConfig()" class="hover:text-[#111] cursor-pointer transition-colors">Export</button>
     </div>
   </aside>
 
-  <!-- MAIN WORKSPACE -->
+  <!-- MAIN -->
   <div class="flex-1 flex flex-col h-screen overflow-hidden bg-white">
-    
-    <!-- Top Header Bar (PaceUI Chat Header Pattern) -->
-    <header class="h-18 border-b border-zinc-200/90 bg-white/95 backdrop-blur-md px-6 sm:px-8 flex items-center justify-between shrink-0 z-20">
-      <div class="flex items-center gap-3.5">
-        <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-800 cursor-pointer">
-          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+
+    <!-- Header -->
+    <header class="h-14 border-b border-[#e4e4e7] bg-white px-6 flex items-center justify-between shrink-0 z-20">
+      <!-- Left: hamburger + wordmark -->
+      <div class="flex items-center gap-3">
+        <button onclick="toggleSidebar()" class="lg:hidden p-1.5 rounded-lg border border-[#e4e4e7] hover:bg-zinc-50 text-zinc-600 cursor-pointer">
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
-        <div class="flex items-center gap-2">
-          <span class="text-[14px] font-mono font-bold text-zinc-400">CHRONOS //</span>
-          <span id="header-view-title" class="text-[15px] font-mono font-extrabold uppercase text-zinc-950">CHAT SENTINEL</span>
+        <span class="text-[15px] font-extrabold tracking-tight uppercase text-[#111]">CHRONOS</span>
+      </div>
+
+      <!-- Center: Model Selector -->
+      <div class="hidden sm:flex items-center gap-2">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#e4e4e7] bg-white">
+          <span class="size-1.5 rounded-full bg-emerald-500" id="model-status-dot"></span>
+          <select id="model-selector" onchange="switchModel(this.value)" class="text-[13px] font-mono font-semibold text-[#111] bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
+            <option value="qwen3.5:9b">qwen3.5:9b</option>
+            <option value="qwen2.5:3b">qwen2.5:3b</option>
+            <option value="gemma4:e2b">gemma4:e2b</option>
+          </select>
+          <svg class="size-3 text-zinc-400 -ml-3 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </div>
       </div>
 
-      <!-- Center Executive Ticker -->
-      <div class="hidden md:flex items-center gap-2.5 px-4 py-2 rounded-full bg-zinc-50 border border-zinc-200 text-[14px] font-mono font-bold text-zinc-700 max-w-md truncate shadow-2xs">
-        <svg class="size-4 shrink-0 text-zinc-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-        </svg>
-        <span id="ticker-text" class="truncate">Scanning active deadlines...</span>
-      </div>
-
-      <!-- Right Action Tools -->
-      <div class="flex items-center gap-3 shrink-0">
-        <div id="live-clock" class="hidden sm:inline-block px-3 py-1.5 rounded-lg bg-zinc-100 border border-zinc-200 font-mono text-[14px] font-bold text-zinc-800">
-          --:--:--
-        </div>
-        <button onclick="switchView('channels')" class="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-[14px] font-bold border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 hover:text-zinc-950 transition-colors shadow-2xs cursor-pointer pace-interactive">
-          <svg class="size-4 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+      <!-- Right: clock + new session -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div id="live-clock" class="hidden sm:block text-[13px] font-mono text-zinc-500">--:--:--</div>
+        <button onclick="resetChat()" title="New session" class="h-8 w-8 rounded-lg bg-[#111] text-white hover:bg-zinc-800 transition-colors flex items-center justify-center cursor-pointer">
+          <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span class="hidden sm:inline">WhatsApp Alerts</span>
-        </button>
-        <button onclick="resetChat()" title="Reset session" class="h-10 px-4 rounded-xl text-[14px] font-bold bg-zinc-950 text-white hover:bg-zinc-800 transition-colors shadow-2xs flex items-center gap-2 cursor-pointer pace-interactive">
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-            <path d="M21 3v5h-5"></path>
-            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-            <path d="M8 16H3v5"></path>
-          </svg>
-          <span class="hidden sm:inline">New Session</span>
         </button>
       </div>
     </header>
 
-    <!-- VIEW 1: CHAT SENTINEL VIEW (Main Chat Flow & PaceUI Hero Command Deck) -->
+    <!-- VIEW: CHAT -->
     <div id="view-chat" class="view-panel flex-1 flex flex-col overflow-hidden relative">
-      
-      <!-- Messages Stream with generous whitespace & Word-doc readability -->
-      <div id="chat-history" class="flex-1 overflow-y-auto px-6 sm:px-10 py-8 space-y-8 scrollbar-thin">
-        
-        <!-- Hero Command Deck (Visible when chat is empty or fresh) -->
-        <div id="hero-command-deck" class="max-w-3xl mx-auto py-8 sm:py-12 space-y-10 animate-fadeIn">
-          
-          <div class="space-y-3.5 text-center sm:text-left">
-            <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[14px] font-mono font-bold bg-zinc-100 text-zinc-800 border border-zinc-200">
-              <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Autonomous Event Sentinel &amp; MCP Matrix
+
+      <!-- Messages -->
+      <div id="chat-history" class="flex-1 overflow-y-auto px-6 sm:px-10 py-8 scrollbar-thin">
+
+        <!-- Hero (shown when empty) -->
+        <div id="hero-command-deck" class="max-w-3xl mx-auto py-12 space-y-10 animate-fadeIn">
+          <div class="space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[13px] font-mono text-zinc-500 border border-[#e4e4e7]">
+              <span class="size-1.5 rounded-full bg-emerald-500"></span>
+              Autonomous Deadline Sentinel
             </div>
-            <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-zinc-950 uppercase leading-tight">
-              Stay Ahead Of Every Deadline.
+            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-[#111] leading-[1.1]">
+              Stay ahead of<br>every deadline.
             </h1>
-            <p class="text-[16px] text-zinc-600 max-w-2xl leading-relaxed font-bold">
-              CHRONOS ingests project &amp; hackathon links, extracts criteria via autonomous pre-research, configures required Model Context Protocol tools, and schedules milestone alerts without noisy spam.
+            <p class="text-[15px] text-zinc-500 max-w-lg leading-relaxed">
+              Ingest project links, extract criteria via autonomous research, configure MCP tools, and schedule milestone alerts.
             </p>
           </div>
 
-          <!-- 3 Command Bento Cards (Minimum 14px Font, Satoshi Bold) -->
+          <!-- Bento Cards -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            
-            <!-- Bento 1: Link Ingestion -->
-            <div onclick="quickSend('I entered https://devpost.com/software/frontier-ai-challenge, deadline is this Sunday')" class="p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-950 hover:shadow-subtle transition-all cursor-pointer space-y-3 group pace-interactive">
-              <div class="size-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white flex items-center justify-center text-zinc-900 transition-colors">
-                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-              </div>
-              <div class="text-[15px] font-extrabold text-zinc-950 uppercase tracking-tight">1. Deep Link Ingestion</div>
-              <p class="text-[14px] text-zinc-500 leading-relaxed font-bold">
-                Paste any Devpost or DoraHacks link. CHRONOS crawls rubrics &amp; submission criteria.
-              </p>
+            <div onclick="quickSend('I entered https://devpost.com/software/frontier-ai-challenge, deadline is this Sunday')" class="group p-6 rounded-xl border border-[#e4e4e7] bg-white hover:border-[#111] transition-all cursor-pointer space-y-3">
+              <svg class="size-5 text-zinc-400 group-hover:text-[#111] transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+              <div class="text-[14px] font-bold text-[#111]">Ingest Link</div>
+              <p class="text-[13px] text-zinc-400 leading-relaxed">Paste any Devpost or DoraHacks link for autonomous crawling.</p>
             </div>
-
-            <!-- Bento 2: Autonomous MCPs -->
-            <div onclick="quickSend('I want to prioritize Track 1 with Python backend and solo builder mode')" class="p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-950 hover:shadow-subtle transition-all cursor-pointer space-y-3 group pace-interactive">
-              <div class="size-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white flex items-center justify-center text-zinc-900 transition-colors">
-                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-              </div>
-              <div class="text-[15px] font-extrabold text-zinc-950 uppercase tracking-tight">2. Auto MCP Setup</div>
-              <p class="text-[14px] text-zinc-500 leading-relaxed font-bold">
-                Resolves GitHub, Firecrawl, DevTools, and SQLite MCPs tailored to your stack.
-              </p>
+            <div onclick="quickSend('I want to prioritize Track 1 with Python backend and solo builder mode')" class="group p-6 rounded-xl border border-[#e4e4e7] bg-white hover:border-[#111] transition-all cursor-pointer space-y-3">
+              <svg class="size-5 text-zinc-400 group-hover:text-[#111] transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              <div class="text-[14px] font-bold text-[#111]">Auto MCP Setup</div>
+              <p class="text-[13px] text-zinc-400 leading-relaxed">Resolve GitHub, Firecrawl, DevTools MCPs for your stack.</p>
             </div>
-
-            <!-- Bento 3: Multi-Platform Briefings -->
-            <div onclick="switchView('channels')" class="p-5 rounded-2xl border border-zinc-200 bg-white hover:border-zinc-950 hover:shadow-subtle transition-all cursor-pointer space-y-3 group pace-interactive">
-              <div class="size-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-950 group-hover:text-white flex items-center justify-center text-zinc-900 transition-colors">
-                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-              </div>
-              <div class="text-[15px] font-extrabold text-zinc-950 uppercase tracking-tight">3. WhatsApp Alerts</div>
-              <p class="text-[14px] text-zinc-500 leading-relaxed font-bold">
-                Receive non-nosy, executive briefings directly on WhatsApp or Telegram.
-              </p>
+            <div onclick="switchView('channels')" class="group p-6 rounded-xl border border-[#e4e4e7] bg-white hover:border-[#111] transition-all cursor-pointer space-y-3">
+              <svg class="size-5 text-zinc-400 group-hover:text-[#111] transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+              <div class="text-[14px] font-bold text-[#111]">Alert Channels</div>
+              <p class="text-[13px] text-zinc-400 leading-relaxed">WhatsApp and Telegram milestone briefings.</p>
             </div>
-
           </div>
 
+          <!-- Suggestion Chips (hero only) -->
+          <div id="hero-chips" class="flex flex-wrap gap-2">
+            <button onclick="quickSend('I entered https://devpost.com/software/frontier-ai-challenge, deadline is this Sunday')" class="px-4 py-2 rounded-full text-[13px] font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-600 border border-[#e4e4e7] transition-all cursor-pointer">Ingest Hackathon Link</button>
+            <button onclick="quickSend('What is my immediate next deadline and milestone?')" class="px-4 py-2 rounded-full text-[13px] font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-600 border border-[#e4e4e7] transition-all cursor-pointer">Check Deadlines</button>
+            <button onclick="quickSend('I want to prioritize Track 1 with Python backend and solo builder mode')" class="px-4 py-2 rounded-full text-[13px] font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-600 border border-[#e4e4e7] transition-all cursor-pointer">Prioritize AI Agent Track</button>
+          </div>
         </div>
-
       </div>
 
-      <!-- Docked Input Footer (PaceUI Chat Input Pattern: Never overlaps chat content) -->
-      <div class="shrink-0 bg-white/95 backdrop-blur-md border-t border-zinc-200/90 px-6 sm:px-10 py-5 space-y-4 z-20">
-        
-        <!-- PaceUI Suggestion Chips (All Min 14px, Satoshi Bold) -->
-        <div class="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-          <button onclick="quickSend('I entered https://devpost.com/software/frontier-ai-challenge, deadline is this Sunday')" class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200/90 transition-all shadow-2xs cursor-pointer pace-interactive">
-            + Ingest Hackathon Link
-          </button>
-          <button onclick="quickSend('What is my immediate next deadline and milestone?')" class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200/90 transition-all shadow-2xs cursor-pointer pace-interactive">
-            Check Deadlines
-          </button>
-          <button onclick="quickSend('I want to prioritize Track 1 with Python backend and solo builder mode')" class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200/90 transition-all shadow-2xs cursor-pointer pace-interactive">
-            Prioritize AI Agent Track
-          </button>
-          <button onclick="switchView('channels')" class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200/90 transition-all shadow-2xs cursor-pointer pace-interactive">
-            Connect WhatsApp
-          </button>
-        </div>
-
-        <!-- Input Form (Spacious 56px height, Min 15px text) -->
-        <form id="chat-form" onsubmit="handleSend(event)" class="relative flex items-center">
-          <input 
-            type="text" 
-            id="chat-input" 
-            class="w-full h-14 pl-5 pr-28 rounded-2xl border border-zinc-300 bg-white text-[15px] font-bold text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-zinc-950 shadow-2xs transition-all" 
-            placeholder="Ask CHRONOS, drop an event link, or clarify your task stack..." 
-            autocomplete="off" 
-            required
+      <!-- Input Footer -->
+      <div id="chat-input-area" class="shrink-0 bg-white border-t border-[#e4e4e7] px-6 sm:px-10 py-4 z-20">
+        <form id="chat-form" onsubmit="handleSend(event)" class="max-w-3xl mx-auto relative flex items-center">
+          <input
+            type="text"
+            id="chat-input"
+            class="w-full h-14 pl-5 pr-14 rounded-xl border border-[#e4e4e7] bg-white text-[15px] font-medium text-[#111] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#111] focus:border-[#111] transition-all"
+            placeholder="Message CHRONOS..."
+            autocomplete="off"
           />
-          <button 
-            type="submit" 
-            id="send-btn" 
-            class="absolute right-2 top-2 bottom-2 px-5 rounded-xl bg-zinc-950 text-white text-[14px] font-bold hover:bg-zinc-800 active:scale-95 transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+          <button
+            type="submit"
+            id="send-btn"
+            class="absolute right-2 size-10 rounded-lg bg-[#111] text-white hover:bg-zinc-800 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
           >
-            <span>Send</span>
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              <line x1="12" y1="19" x2="12" y2="5"></line>
+              <polyline points="5 12 12 5 19 12"></polyline>
             </svg>
           </button>
         </form>
-        
-        <div class="flex items-center justify-between text-[14px] text-zinc-500 px-1 font-mono font-bold">
-          <span>Press Enter to send · Auto-saves to local SQLite</span>
-          <span>Zero External Telemetry</span>
-        </div>
       </div>
     </div>
 
-    <!-- VIEW 2: TIMELINE MATRIX VIEW (Full Interactive Phased Roadmap) -->
+    <!-- VIEW: TIMELINE MATRIX -->
     <div id="view-matrix" class="view-panel hidden flex-1 flex flex-col overflow-y-auto p-8 sm:p-10 space-y-8">
-      <div class="flex items-center justify-between border-b border-zinc-200 pb-5">
+      <div class="flex items-center justify-between border-b border-[#e4e4e7] pb-5">
         <div>
-          <h2 class="text-2xl font-extrabold text-zinc-950 uppercase tracking-tight">TIMELINE &amp; CALENDAR MATRIX</h2>
-          <p class="text-[14px] text-zinc-500 mt-1 font-bold">Chronological milestones backwards-scheduled from event deadlines.</p>
+          <h2 class="text-xl font-extrabold text-[#111] uppercase tracking-tight">Timeline Matrix</h2>
+          <p class="text-[14px] text-zinc-500 mt-1">Milestones backwards-scheduled from deadlines.</p>
         </div>
-        <button onclick="switchView('chat')" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-[14px] font-bold text-zinc-800 cursor-pointer pace-interactive">
-          &larr; Back to Chat
-        </button>
+        <button onclick="switchView('chat')" class="px-4 py-2 rounded-lg border border-[#e4e4e7] hover:bg-zinc-50 text-[14px] font-semibold text-zinc-600 cursor-pointer transition-colors">Back</button>
       </div>
-
       <div id="full-calendar-list" class="space-y-4 max-w-4xl">
-        <div class="text-[14px] text-zinc-400 font-bold">Loading timeline...</div>
+        <div class="text-[14px] text-zinc-400">Loading timeline...</div>
       </div>
     </div>
 
-    <!-- VIEW 3: MCP ORCHESTRATOR VIEW (Full Tool Catalog & Config) -->
+    <!-- VIEW: MCP ORCHESTRATOR -->
     <div id="view-mcps" class="view-panel hidden flex-1 flex flex-col overflow-y-auto p-8 sm:p-10 space-y-8">
-      <div class="flex items-center justify-between border-b border-zinc-200 pb-5">
+      <div class="flex items-center justify-between border-b border-[#e4e4e7] pb-5">
         <div>
-          <h2 class="text-2xl font-extrabold text-zinc-950 uppercase tracking-tight">MODEL CONTEXT PROTOCOL ORCHESTRATOR</h2>
-          <p class="text-[14px] text-zinc-500 mt-1 font-bold">Configured servers ready for integration with Claude, Antigravity, and Cursor.</p>
+          <h2 class="text-xl font-extrabold text-[#111] uppercase tracking-tight">MCP Orchestrator</h2>
+          <p class="text-[14px] text-zinc-500 mt-1">Configured servers for Claude, Antigravity, and Cursor.</p>
         </div>
-        <div class="flex items-center gap-3">
-          <button onclick="exportMcpConfig()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-950 text-white text-[14px] font-bold hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer pace-interactive">
-            Export `mcp_servers.json`
-          </button>
-          <button onclick="switchView('chat')" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-[14px] font-bold text-zinc-800 cursor-pointer pace-interactive">
-            &larr; Back to Chat
-          </button>
+        <div class="flex items-center gap-2">
+          <button onclick="exportMcpConfig()" class="px-4 py-2 rounded-lg bg-[#111] text-white text-[14px] font-semibold hover:bg-zinc-800 transition-colors cursor-pointer">Export JSON</button>
+          <button onclick="switchView('chat')" class="px-4 py-2 rounded-lg border border-[#e4e4e7] hover:bg-zinc-50 text-[14px] font-semibold text-zinc-600 cursor-pointer transition-colors">Back</button>
         </div>
       </div>
-
       <div id="full-mcps-list" class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-5xl">
-        <div class="text-[14px] text-zinc-400 font-bold">Loading MCP configurations...</div>
+        <div class="text-[14px] text-zinc-400">Loading MCP configurations...</div>
       </div>
     </div>
 
-    <!-- VIEW 4: CHANNELS & SOCIAL DISPATCHER VIEW -->
+    <!-- VIEW: CHANNELS -->
     <div id="view-channels" class="view-panel hidden flex-1 flex flex-col overflow-y-auto p-8 sm:p-10 space-y-8">
-      <div class="flex items-center justify-between border-b border-zinc-200 pb-5">
+      <div class="flex items-center justify-between border-b border-[#e4e4e7] pb-5">
         <div>
-          <h2 class="text-2xl font-extrabold text-zinc-950 uppercase tracking-tight">NOTIFICATION CHANNELS &amp; ALERTS</h2>
-          <p class="text-[14px] text-zinc-500 mt-1 font-bold">Dispatch executive briefings directly to WhatsApp, Telegram, Discord, and Slack.</p>
+          <h2 class="text-xl font-extrabold text-[#111] uppercase tracking-tight">Notification Channels</h2>
+          <p class="text-[14px] text-zinc-500 mt-1">Executive briefings to WhatsApp, Telegram, and more.</p>
         </div>
-        <button onclick="switchView('chat')" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-[14px] font-bold text-zinc-800 cursor-pointer pace-interactive">
-          &larr; Back to Chat
-        </button>
+        <button onclick="switchView('chat')" class="px-4 py-2 rounded-lg border border-[#e4e4e7] hover:bg-zinc-50 text-[14px] font-semibold text-zinc-600 cursor-pointer transition-colors">Back</button>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
-        
-        <!-- WhatsApp Box -->
-        <div class="rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 shadow-xs">
+        <!-- WhatsApp -->
+        <div class="rounded-xl border border-[#e4e4e7] bg-white p-6 space-y-5">
           <div class="flex items-center gap-3">
-            <div class="size-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-              </svg>
+            <div class="size-9 rounded-lg bg-zinc-50 text-zinc-600 flex items-center justify-center">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
             </div>
             <div>
-              <div class="text-base font-extrabold text-zinc-950">WhatsApp Alerts</div>
-              <div class="text-[14px] text-zinc-500 font-bold">Milestone reminders sent directly to your phone</div>
+              <div class="text-[15px] font-bold text-[#111]">WhatsApp</div>
+              <div class="text-[13px] text-zinc-400">Milestone reminders</div>
             </div>
           </div>
-          <div class="space-y-4">
+          <div class="space-y-3">
             <div>
-              <label class="block text-[14px] font-mono uppercase text-zinc-700 mb-1.5 font-bold">Phone Number (with Country Code)</label>
-              <input type="text" id="view-wa-phone" class="w-full h-11 rounded-xl border border-zinc-300 bg-white px-4 text-[14px] font-bold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950" placeholder="+1234567890 or +919876543210">
+              <label class="block text-[12px] font-mono uppercase text-zinc-500 mb-1">Phone Number</label>
+              <input type="text" id="view-wa-phone" class="w-full h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-[14px] text-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]" placeholder="+919876543210">
             </div>
             <div>
-              <label class="block text-[14px] font-mono uppercase text-zinc-700 mb-1.5 font-bold">Webhook Gateway URL (Optional)</label>
-              <input type="text" id="view-wa-webhook" class="w-full h-11 rounded-xl border border-zinc-300 bg-white px-4 text-[14px] font-bold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950" placeholder="https://your-whatsapp-gateway.com/webhook">
+              <label class="block text-[12px] font-mono uppercase text-zinc-500 mb-1">Webhook URL (optional)</label>
+              <input type="text" id="view-wa-webhook" class="w-full h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-[14px] text-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]" placeholder="https://gateway.com/webhook">
             </div>
-            <button onclick="saveAndTestChannel('whatsapp', 'view-wa-phone', 'view-wa-webhook')" class="w-full h-11 rounded-xl bg-zinc-950 text-white text-[14px] font-bold hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer pace-interactive">
-              Connect WhatsApp &amp; Send Test Ping
-            </button>
+            <button onclick="saveAndTestChannel('whatsapp', 'view-wa-phone', 'view-wa-webhook')" class="w-full h-10 rounded-lg bg-[#111] text-white text-[14px] font-semibold hover:bg-zinc-800 transition-colors cursor-pointer">Connect</button>
           </div>
         </div>
 
-        <!-- Telegram Box -->
-        <div class="rounded-2xl border border-zinc-200 bg-white p-6 space-y-5 shadow-xs">
+        <!-- Telegram -->
+        <div class="rounded-xl border border-[#e4e4e7] bg-white p-6 space-y-5">
           <div class="flex items-center gap-3">
-            <div class="size-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
+            <div class="size-9 rounded-lg bg-zinc-50 text-zinc-600 flex items-center justify-center">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
             </div>
             <div>
-              <div class="text-base font-extrabold text-zinc-950">Telegram Alerts</div>
-              <div class="text-[14px] text-zinc-500 font-bold">Pushed to your Telegram bot or channel</div>
+              <div class="text-[15px] font-bold text-[#111]">Telegram</div>
+              <div class="text-[13px] text-zinc-400">Bot or channel alerts</div>
             </div>
           </div>
-          <div class="space-y-4">
+          <div class="space-y-3">
             <div>
-              <label class="block text-[14px] font-mono uppercase text-zinc-700 mb-1.5 font-bold">Bot Token</label>
-              <input type="text" id="view-tg-token" class="w-full h-11 rounded-xl border border-zinc-300 bg-white px-4 text-[14px] font-bold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+              <label class="block text-[12px] font-mono uppercase text-zinc-500 mb-1">Bot Token</label>
+              <input type="text" id="view-tg-token" class="w-full h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-[14px] text-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]" placeholder="123456:ABC-DEF1234ghIkl">
             </div>
             <div>
-              <label class="block text-[14px] font-mono uppercase text-zinc-700 mb-1.5 font-bold">Chat ID</label>
-              <input type="text" id="view-tg-chat" class="w-full h-11 rounded-xl border border-zinc-300 bg-white px-4 text-[14px] font-bold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950" placeholder="@your_channel or 987654321">
+              <label class="block text-[12px] font-mono uppercase text-zinc-500 mb-1">Chat ID</label>
+              <input type="text" id="view-tg-chat" class="w-full h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-[14px] text-[#111] focus:outline-none focus:ring-2 focus:ring-[#111]" placeholder="@channel or 987654321">
             </div>
-            <button onclick="saveAndTestChannel('telegram', 'view-tg-chat', null, 'view-tg-token')" class="w-full h-11 rounded-xl bg-zinc-950 text-white text-[14px] font-bold hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer pace-interactive">
-              Connect Telegram &amp; Send Test Ping
-            </button>
+            <button onclick="saveAndTestChannel('telegram', 'view-tg-chat', null, 'view-tg-token')" class="w-full h-10 rounded-lg bg-[#111] text-white text-[14px] font-semibold hover:bg-zinc-800 transition-colors cursor-pointer">Connect</button>
           </div>
         </div>
-
       </div>
 
-      <!-- Active Connected Channels Deck -->
-      <div class="space-y-4 pt-4 border-t border-zinc-200 max-w-5xl">
-        <div class="text-[14px] font-mono uppercase tracking-wider text-zinc-500 font-bold">Active Connected Channels</div>
-        <div id="full-channels-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="text-[14px] text-zinc-400 font-bold">No external channels linked yet. Configure above.</div>
+      <!-- Active Channels -->
+      <div class="space-y-4 pt-4 border-t border-[#e4e4e7] max-w-5xl">
+        <div class="text-[12px] font-mono uppercase tracking-widest text-zinc-400">Active Channels</div>
+        <div id="full-channels-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="text-[14px] text-zinc-400">No channels configured.</div>
         </div>
       </div>
     </div>
-
   </div>
 
   <script src="/static/app.js"></script>

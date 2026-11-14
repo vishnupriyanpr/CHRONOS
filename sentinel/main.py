@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from sentinel.db import (
@@ -22,7 +22,9 @@ from sentinel.db import (
 )
 from sentinel.scraper import scrape_event_url
 from sentinel.ai_engine import (
-    synthesize_research, generate_phased_tasks, generate_non_nosy_briefing
+    synthesize_research, generate_phased_tasks, generate_non_nosy_briefing,
+    get_active_model, get_active_provider, set_active_model, get_active_model_info,
+    stream_llm
 )
 from sentinel.mcp_manager import (
     recommend_mcps_for_event, generate_unified_config, save_mcp_config_to_disk, MCP_CATALOG
@@ -383,6 +385,152 @@ def get_immediate_briefing():
     tasks = get_tasks(first_event["id"])
     pending = [t for t in tasks if t["status"] != "done"]
     return generate_non_nosy_briefing(first_event, pending)
+
+# ── Model Switcher API (Ollama Local + Groq Cloud LPU) ────────────────
+
+class ModelSwitchRequest(BaseModel):
+    model: str
+    provider: Optional[str] = None
+
+@app.get("/api/models")
+def list_available_models():
+    """Returns available local Ollama models and Groq cloud models."""
+    import requests as _req
+    models = []
+    
+    # 1. Local Ollama models
+    try:
+        resp = _req.get("http://localhost:11434/api/tags", timeout=3)
+        if resp.status_code == 200:
+            raw = resp.json().get("models", [])
+            for m in raw:
+                name = m.get("name", "")
+                models.append({
+                    "id": name,
+                    "name": name,
+                    "provider": "ollama",
+                    "badge": "Ollama Local",
+                    "size": m.get("size", 0)
+                })
+    except Exception:
+        # Fallback offline defaults for Ollama if daemon starting
+        for fallback_name in ["qwen3.5:9b", "qwen2.5:3b", "gemma4:e2b"]:
+            models.append({
+                "id": fallback_name,
+                "name": fallback_name,
+                "provider": "ollama",
+                "badge": "Ollama Local",
+                "size": 0
+            })
+
+    # 2. Cloud Groq LPU models (if API key present)
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key and not "your_" in groq_key.lower():
+        models.extend([
+            {
+                "id": "openai/gpt-oss-20b",
+                "name": "gpt-oss-20b",
+                "provider": "groq",
+                "badge": "Groq Fast LPU",
+                "size": 0
+            },
+            {
+                "id": "qwen/qwen3.8-27b",
+                "name": "qwen3.8-27b",
+                "provider": "groq",
+                "badge": "Groq Frontier LPU",
+                "size": 0
+            },
+            {
+                "id": "openai/gpt-oss-120b",
+                "name": "gpt-oss-120b",
+                "provider": "groq",
+                "badge": "Groq Deep LPU",
+                "size": 0
+            }
+        ])
+
+    return models
+
+@app.get("/api/models/active")
+def get_active_model_endpoint():
+    """Returns the currently selected model and provider."""
+    return get_active_model_info()
+
+@app.post("/api/models/switch")
+def switch_active_model(req: ModelSwitchRequest):
+    """Switches the active model and provider."""
+    info = set_active_model(req.model, req.provider)
+    return {"status": "switched", **info}
+
+@app.get("/api/models/status")
+def get_model_status():
+    """Checks online/offline status of the active provider."""
+    import requests as _req
+    provider = get_active_provider()
+    model = get_active_model()
+    
+    if provider == "groq":
+        key = os.getenv("GROQ_API_KEY")
+        if key:
+            try:
+                resp = _req.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {key}"}, timeout=3)
+                if resp.status_code == 200:
+                    return {"status": "online", "model": model, "provider": "groq"}
+            except Exception:
+                pass
+        return {"status": "offline", "model": model, "provider": "groq"}
+    else:
+        try:
+            resp = _req.get("http://localhost:11434/api/tags", timeout=2)
+            if resp.status_code == 200:
+                return {"status": "online", "model": model, "provider": "ollama"}
+        except Exception:
+            pass
+        return {"status": "offline", "model": model, "provider": "ollama"}
+
+# ── Streaming Chat (SSE) ────────────────────────────────────────────
+
+class StreamChatRequest(BaseModel):
+    message: str
+
+@app.post("/api/chat/stream")
+def stream_chat(req: StreamChatRequest):
+    """
+    Streams LLM tokens via Server-Sent Events using stream_llm.
+    Each frame is: data: {"token": "..."} or data: {"reasoning": "..."}
+    """
+    import json as _json
+    from sentinel.db import save_chat_message
+
+    def _generate():
+        # Save user message
+        save_chat_message(role="user", content=req.message)
+        
+        system_prompt = (
+            "You are CHRONOS, an expert autonomous deadline sentinel and hackathon architect. "
+            "Help the user stay ahead of milestones with concise, razor-sharp advice."
+        )
+        full_content = []
+        try:
+            for chunk in stream_llm(system_prompt, req.message):
+                if "reasoning" in chunk:
+                    yield f"data: {_json.dumps({'reasoning': chunk['reasoning']})}\n\n"
+                if "token" in chunk:
+                    full_content.append(chunk["token"])
+                    yield f"data: {_json.dumps({'token': chunk['token']})}\n\n"
+            
+            # Save assistant reply
+            final_text = "".join(full_content)
+            if final_text:
+                save_chat_message(role="assistant", content=final_text)
+                
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            yield f"data: {_json.dumps({'error': str(exc)})}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")
 
 # Chatbot Endpoints
 class ChatMessageRequest(BaseModel):

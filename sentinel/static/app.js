@@ -1,6 +1,7 @@
 /* ==========================================================================
-   CHRONOS // PACEUI & SHADCN CLIENT ENGINE & CONTROLLER
-   Aesthetic: Obsidian, Zinc & White | Satoshi Bold Everywhere | Min 14px Text
+   CHRONOS // EDITORIAL MINIMALIST CLIENT CONTROLLER
+   Aesthetic: Pure White, Off-Black (#111), Crisp Hairline Borders
+   Typography: Satoshi Bold Everywhere | JetBrains Mono Data Floor
    ========================================================================== */
 
 let state = {
@@ -9,9 +10,13 @@ let state = {
   channels: [],
   calendar: [],
   mcps: [],
+  models: [],
+  activeModel: 'qwen3.5:9b',
+  activeProvider: 'ollama',
   briefing: null,
   activeEvent: null,
-  targetDeadline: null
+  targetDeadline: null,
+  isProcessing: false
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -21,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
 async function initApp() {
   startLiveClock();
   startRadarCountdown();
+  await loadModels();
   await loadChatHistory();
   await loadBriefing();
   await loadEventsAndRadar();
@@ -28,11 +34,13 @@ async function initApp() {
   await loadMcps();
   await loadChannels();
 
-  // Periodic background refresh
+  // Periodic background check
   setInterval(loadBriefing, 15000);
+  setInterval(checkModelStatus, 10000);
 }
 
-// Live Clock Ticker
+// ── Clock & Countdown Engines ──────────────────────────────────────────
+
 function startLiveClock() {
   const clockEl = document.getElementById("live-clock");
   if (!clockEl) return;
@@ -44,79 +52,11 @@ function startLiveClock() {
   setInterval(update, 1000);
 }
 
-// View Switcher (Chat Sentinel, Timeline Matrix, MCP Orchestrator, Social Dispatcher)
-function switchView(viewName) {
-  state.activeView = viewName;
-  
-  // Hide all view panels
-  const panels = document.querySelectorAll(".view-panel");
-  panels.forEach(p => p.classList.add("hidden"));
-
-  // Show target panel
-  const target = document.getElementById(`view-${viewName}`);
-  if (target) {
-    target.classList.remove("hidden");
-  }
-
-  // Update Header Title
-  const titles = {
-    chat: 'CHAT SENTINEL',
-    matrix: 'TIMELINE MATRIX',
-    mcps: 'MCP ORCHESTRATOR',
-    channels: 'SOCIAL DISPATCHER'
-  };
-  const titleEl = document.getElementById("header-view-title");
-  if (titleEl) titleEl.textContent = titles[viewName] || 'COMMAND DECK';
-
-  // Update Sidebar active state
-  ['chat', 'matrix', 'mcps', 'channels'].forEach(v => {
-    const btn = document.getElementById(`nav-${v}`);
-    if (btn) {
-      if (v === viewName) {
-        btn.className = "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-bold bg-zinc-950 text-white transition-all shadow-2xs cursor-pointer pace-interactive";
-      } else {
-        btn.className = "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-bold text-zinc-800 hover:bg-zinc-200/80 hover:text-zinc-950 transition-all cursor-pointer pace-interactive";
-      }
-    }
-  });
-
-  // Trigger view data refreshes
-  if (viewName === 'matrix') renderFullCalendar();
-  if (viewName === 'mcps') renderFullMcps();
-  if (viewName === 'channels') renderFullChannels();
-  if (viewName === 'chat') scrollToBottom();
-}
-
-function toggleSidebar() {
-  const sb = document.getElementById("sidebar");
-  if (sb) {
-    sb.classList.toggle("hidden");
-  }
-}
-
-// Live Deadline Radar & Countdown Engine
-async function loadEventsAndRadar() {
-  try {
-    const res = await fetch("/api/events");
-    const events = await res.json();
-    if (events.length > 0) {
-      state.activeEvent = events[0];
-      state.targetDeadline = new Date(events[0].deadline.replace("Z", ""));
-      
-      const titleEl = document.getElementById("radar-event-title");
-      if (titleEl) titleEl.textContent = events[0].title;
-    }
-    updateRadarProgress();
-  } catch (err) {
-    console.error("Failed to load events:", err);
-  }
-}
-
 function startRadarCountdown() {
   const cdEl = document.getElementById("radar-countdown");
   setInterval(() => {
     if (!state.targetDeadline) {
-      if (cdEl) cdEl.textContent = "02d 14h 28m 10s";
+      if (cdEl) cdEl.textContent = "--:--:--";
       return;
     }
     const now = new Date();
@@ -130,13 +70,182 @@ function startRadarCountdown() {
     const mins = Math.floor((diff / (1000 * 60)) % 60);
     const secs = Math.floor((diff / 1000) % 60);
     if (cdEl) {
-      cdEl.textContent = `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
+      if (days > 0) {
+        cdEl.textContent = `${days}d ${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+      } else {
+        cdEl.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
     }
   }, 1000);
 }
 
+// ── Models & Provider Switcher ─────────────────────────────────────────
+
+async function loadModels() {
+  try {
+    const res = await fetch("/api/models");
+    const models = await res.json();
+    state.models = models;
+
+    const activeRes = await fetch("/api/models/active");
+    const activeData = await activeRes.json();
+    state.activeModel = activeData.model || 'qwen3.5:9b';
+    state.activeProvider = activeData.provider || 'ollama';
+
+    renderModelSelector();
+    checkModelStatus();
+  } catch (err) {
+    console.warn("Could not load models list:", err);
+  }
+}
+
+function renderModelSelector() {
+  const selector = document.getElementById("model-selector");
+  if (!selector) return;
+
+  const ollamaModels = state.models.filter(m => m.provider === 'ollama');
+  const groqModels = state.models.filter(m => m.provider === 'groq');
+
+  let html = '';
+  if (ollamaModels.length > 0) {
+    html += '<optgroup label="Local (Ollama)">';
+    ollamaModels.forEach(m => {
+      const selected = m.id === state.activeModel ? 'selected' : '';
+      html += `<option value="${escapeHtml(m.id)}" data-provider="ollama" ${selected}>${escapeHtml(m.name)} [Local]</option>`;
+    });
+    html += '</optgroup>';
+  }
+
+  if (groqModels.length > 0) {
+    html += '<optgroup label="Cloud (Groq LPU)">';
+    groqModels.forEach(m => {
+      const selected = m.id === state.activeModel ? 'selected' : '';
+      html += `<option value="${escapeHtml(m.id)}" data-provider="groq" ${selected}>${escapeHtml(m.name)} [Groq]</option>`;
+    });
+    html += '</optgroup>';
+  }
+
+  if (!html) {
+    html = `<option value="${escapeHtml(state.activeModel)}" selected>${escapeHtml(state.activeModel)}</option>`;
+  }
+
+  selector.innerHTML = html;
+}
+
+async function switchModel(modelId) {
+  const selectedObj = state.models.find(m => m.id === modelId);
+  const provider = selectedObj ? selectedObj.provider : (modelId.includes('/') ? 'groq' : 'ollama');
+
+  state.activeModel = modelId;
+  state.activeProvider = provider;
+
+  updateModelActivity('idle', `Switched to ${modelId}`);
+
+  try {
+    const res = await fetch("/api/models/switch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: modelId, provider: provider })
+    });
+    const data = await res.json();
+    checkModelStatus();
+  } catch (err) {
+    console.error("Failed to switch model:", err);
+  }
+}
+
+async function checkModelStatus() {
+  const dot = document.getElementById("model-status-dot");
+  try {
+    const res = await fetch("/api/models/status");
+    const data = await res.json();
+    if (dot) {
+      dot.className = data.status === "online" 
+        ? "size-1.5 rounded-full bg-emerald-500" 
+        : "size-1.5 rounded-full bg-amber-500";
+    }
+  } catch (err) {
+    if (dot) dot.className = "size-1.5 rounded-full bg-zinc-400";
+  }
+}
+
+// ── Sidebar Model Activity Monitor ─────────────────────────────────────
+
+function updateModelActivity(mode, label) {
+  const fill = document.getElementById("model-activity-fill");
+  const text = document.getElementById("model-activity-text");
+
+  if (!fill || !text) return;
+
+  if (mode === 'thinking') {
+    fill.style.width = '100%';
+    fill.className = 'h-full activity-active';
+    text.textContent = label || `Reasoning with ${state.activeModel}...`;
+    text.className = 'text-[13px] font-mono text-[#111] font-semibold';
+  } else if (mode === 'streaming') {
+    fill.style.width = '100%';
+    fill.className = 'h-full bg-[#111] transition-all duration-150';
+    text.textContent = label || 'Streaming response...';
+    text.className = 'text-[13px] font-mono text-[#111] font-semibold';
+  } else {
+    fill.style.width = '0%';
+    fill.className = 'h-full bg-zinc-300 transition-all duration-300';
+    text.textContent = label || 'Model idle';
+    text.className = 'text-[13px] font-mono text-zinc-400';
+  }
+}
+
+// ── View Switcher ──────────────────────────────────────────────────────
+
+function switchView(viewName) {
+  state.activeView = viewName;
+
+  document.querySelectorAll(".view-panel").forEach(p => p.classList.add("hidden"));
+  const target = document.getElementById(`view-${viewName}`);
+  if (target) target.classList.remove("hidden");
+
+  ['chat', 'matrix', 'mcps', 'channels'].forEach(v => {
+    const btn = document.getElementById(`nav-${v}`);
+    if (btn) {
+      if (v === viewName) {
+        btn.className = "nav-btn nav-btn-active";
+      } else {
+        btn.className = "nav-btn text-zinc-600 hover:bg-zinc-50 hover:text-[#111]";
+      }
+    }
+  });
+
+  if (viewName === 'matrix') renderFullCalendar();
+  if (viewName === 'mcps') renderFullMcps();
+  if (viewName === 'channels') renderFullChannels();
+  if (viewName === 'chat') scrollToBottom();
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById("sidebar");
+  if (sb) sb.classList.toggle("hidden");
+}
+
+// ── Events, Radar & Briefing ───────────────────────────────────────────
+
+async function loadEventsAndRadar() {
+  try {
+    const res = await fetch("/api/events");
+    const events = await res.json();
+    if (events.length > 0) {
+      state.activeEvent = events[0];
+      state.targetDeadline = new Date(events[0].deadline.replace("Z", ""));
+      const titleEl = document.getElementById("radar-event-title");
+      if (titleEl) titleEl.textContent = events[0].title;
+    }
+    updateRadarProgress();
+  } catch (err) {
+    console.error("Failed to load events:", err);
+  }
+}
+
 function updateRadarProgress() {
-  const tasks = state.calendar.filter(i => i.type === 'milestone_task');
+  const tasks = state.calendar.filter(i => i.type === 'milestone_task' || i.type === 'task_due');
   const countEl = document.getElementById("sidebar-task-count");
   if (countEl) countEl.textContent = tasks.length;
 
@@ -156,22 +265,18 @@ function setRadarProgress(pct) {
   if (text) text.textContent = `${pct}%`;
 }
 
-// Executive Briefing Ticker
 async function loadBriefing() {
   try {
     const res = await fetch("/api/briefing");
     const data = await res.json();
     state.briefing = data;
-    const tickerText = document.getElementById("ticker-text");
-    if (tickerText) {
-      tickerText.textContent = `[BRIEFING] ${data.message || 'All systems nominal.'}`;
-    }
   } catch (err) {
     console.error("Failed to load briefing:", err);
   }
 }
 
-// Chat Engine
+// ── Chat Engine with Real-Time Streaming & Thinking Animation ──────────
+
 async function loadChatHistory() {
   try {
     const res = await fetch("/api/chat/history");
@@ -189,14 +294,15 @@ function renderChat() {
 
   const heroDeck = document.getElementById("hero-command-deck");
 
-  if (state.chatHistory.length === 0) {
+  if (!state.chatHistory || state.chatHistory.length === 0) {
     if (heroDeck) heroDeck.classList.remove("hidden");
     container.innerHTML = "";
     if (heroDeck) container.appendChild(heroDeck);
     return;
   }
 
-  // Active chat has messages: hide initial hero deck
+  if (heroDeck) heroDeck.classList.add("hidden");
+
   let html = state.chatHistory.map(msg => renderMessageHtml(msg)).join("");
   container.innerHTML = html;
   scrollToBottom();
@@ -208,8 +314,8 @@ function renderMessageHtml(msg) {
 
   if (isUser) {
     return `
-      <div class="flex justify-end animate-fadeIn">
-        <div class="max-w-xl rounded-2xl rounded-tr-xs bg-zinc-950 text-white px-6 py-4 text-[15px] font-bold leading-relaxed shadow-sm">
+      <div class="flex justify-end animate-fadeIn my-6">
+        <div class="max-w-xl rounded-xl rounded-tr-xs bg-[#111] text-white px-5 py-3.5 text-[15px] font-bold leading-relaxed shadow-sm">
           ${formattedContent}
         </div>
       </div>
@@ -226,31 +332,23 @@ function renderMessageHtml(msg) {
   } else if (msg.card_type === "channel_connect_trigger") {
     cardHtml = `
       <div class="pt-2">
-        <button onclick="switchView('channels')" class="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-zinc-950 text-white text-[14px] font-bold hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer pace-interactive">
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-          </svg>
-          <span>Configure WhatsApp &amp; Social Channels</span>
+        <button onclick="switchView('channels')" class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-[#111] text-white text-[14px] font-semibold hover:bg-zinc-800 transition-colors cursor-pointer">
+          <span>Configure Channels</span>
         </button>
       </div>
     `;
   }
 
   return `
-    <div class="flex items-start gap-4 max-w-4xl animate-fadeIn">
-      <div class="size-9 rounded-xl bg-zinc-950 flex items-center justify-center text-white shrink-0 shadow-xs mt-0.5">
-        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+    <div class="flex items-start gap-4 max-w-3xl animate-fadeIn my-6">
+      <div class="size-8 rounded-lg bg-[#111] flex items-center justify-center text-white shrink-0 mt-0.5">
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <polyline points="12 6 12 12 16 14"></polyline>
         </svg>
       </div>
-      <div class="flex-1 space-y-4">
-        <div class="flex items-center gap-2 text-[14px] font-mono font-bold text-zinc-500">
-          <span class="text-zinc-950 font-extrabold uppercase">CHRONOS SENTINEL</span>
-          <span>•</span>
-          <span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200">Autonomous Scraper</span>
-        </div>
-        <div class="text-[15px] text-zinc-900 leading-relaxed message-content">
+      <div class="flex-1 space-y-3">
+        <div class="text-[15px] text-[#111] leading-relaxed message-content">
           ${formattedContent}
         </div>
         ${cardHtml}
@@ -261,42 +359,28 @@ function renderMessageHtml(msg) {
 
 function renderResearchCard(meta) {
   return `
-    <div class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs space-y-5">
-      <div class="flex items-center justify-between border-b border-zinc-100 pb-4">
-        <div class="flex items-center gap-2.5">
-          <svg class="size-5 text-zinc-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-            <polyline points="10 9 9 9 8 9"></polyline>
-          </svg>
-          <span class="text-[14px] font-mono font-extrabold tracking-wider uppercase text-zinc-950">
-            PRE-RESEARCH DOSSIER // ${escapeHtml(meta.event_title || '')}
-          </span>
+    <div class="rounded-xl border border-[#e4e4e7] bg-white p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div class="text-[13px] font-mono font-bold uppercase tracking-wider text-[#111]">
+          Pre-Research // ${escapeHtml(meta.event_title || '')}
         </div>
-        <span class="px-3 py-1 rounded-full text-[14px] font-mono font-bold bg-zinc-100 text-zinc-900 border border-zinc-200">
-          VERIFIED CRAWL
+        <span class="px-2 py-0.5 rounded text-[12px] font-mono font-semibold bg-zinc-100 text-[#111]">
+          Verified
         </span>
       </div>
 
-      <p class="text-[15px] text-zinc-600 leading-relaxed font-bold">
+      <p class="text-[14px] text-zinc-600 leading-relaxed font-bold">
         ${escapeHtml(meta.summary || '')}
       </p>
 
-      <div class="space-y-3 pt-1">
-        <div class="text-[14px] font-mono font-extrabold uppercase tracking-wider text-zinc-500">
-          Select Your Priority Focus Track:
-        </div>
-        <div class="flex flex-wrap gap-2.5">
-          <button onclick="quickSend('I want to prioritize Track 1 with Python backend and solo builder mode')" class="h-10 px-4 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-950 hover:text-white text-[14px] font-bold text-zinc-900 transition-all shadow-2xs cursor-pointer pace-interactive">
+      <div class="space-y-2 pt-1">
+        <div class="text-[12px] font-mono uppercase text-zinc-400 font-semibold">Priority Tracks:</div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="quickSend('I want to prioritize Track 1 with Python backend and solo builder mode')" class="h-9 px-3.5 rounded-lg border border-[#e4e4e7] bg-zinc-50 hover:bg-[#111] hover:text-white text-[13px] font-bold text-[#111] transition-all cursor-pointer">
             Track 1: Autonomous Agent (Python)
           </button>
-          <button onclick="quickSend('Solo builder mode with full-stack UI, Chrome DevTools testing')" class="h-10 px-4 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-950 hover:text-white text-[14px] font-bold text-zinc-900 transition-all shadow-2xs cursor-pointer pace-interactive">
+          <button onclick="quickSend('Solo builder mode with full-stack UI, Chrome DevTools testing')" class="h-9 px-3.5 rounded-lg border border-[#e4e4e7] bg-zinc-50 hover:bg-[#111] hover:text-white text-[13px] font-bold text-[#111] transition-all cursor-pointer">
             Solo Builder (Full-Stack UI)
-          </button>
-          <button onclick="quickSend('Configure backend with SQLite, GitHub MCP, and auto-commits')" class="h-10 px-4 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-950 hover:text-white text-[14px] font-bold text-zinc-900 transition-all shadow-2xs cursor-pointer pace-interactive">
-            Backend Logic + GitHub MCP
           </button>
         </div>
       </div>
@@ -309,68 +393,57 @@ function renderTasksAndMcpsCard(meta) {
   const mcps = meta.mcps || [];
 
   const tasksHtml = tasks.map(t => `
-    <div class="flex items-start gap-3.5 p-4 rounded-xl border border-zinc-200/90 bg-zinc-50/60 hover:bg-zinc-50 transition-colors ${t.status === 'done' ? 'opacity-50 line-through' : ''}">
-      <input type="checkbox" class="accent-zinc-950 size-5 rounded-md mt-0.5 cursor-pointer" ${t.status === 'done' ? 'checked' : ''} onchange="toggleTaskInChat(${t.id}, this.checked)">
-      <div class="flex-1 space-y-1.5">
-        <div class="text-[15px] font-extrabold text-zinc-950">${escapeHtml(t.title)}</div>
-        <div class="flex items-center gap-2.5 text-[14px] font-mono font-bold text-zinc-600">
-          <span class="px-2 py-0.5 rounded-md bg-zinc-200 text-zinc-900">${t.phase}</span>
+    <div class="flex items-start gap-3 p-3.5 rounded-lg border border-[#e4e4e7] bg-zinc-50/50 ${t.status === 'done' ? 'opacity-50 line-through' : ''}">
+      <input type="checkbox" class="accent-[#111] size-4 rounded mt-1 cursor-pointer" ${t.status === 'done' ? 'checked' : ''} onchange="toggleTaskInChat(${t.id}, this.checked)">
+      <div class="flex-1 space-y-1">
+        <div class="text-[14px] font-bold text-[#111]">${escapeHtml(t.title)}</div>
+        <div class="flex items-center gap-2 text-[12px] font-mono text-zinc-500 font-semibold">
+          <span class="px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-800">${t.phase}</span>
           <span>Due: ${t.due_date || 'TBD'}</span>
-          ${t.assigned_mcp ? `<span class="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200">Tool: ${escapeHtml(t.assigned_mcp)}</span>` : ''}
+          ${t.assigned_mcp ? `<span class="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700">Tool: ${escapeHtml(t.assigned_mcp)}</span>` : ''}
         </div>
       </div>
     </div>
   `).join("");
 
-  const mcpsHtml = mcps.slice(0, 4).map(m => `
-    <div class="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white font-mono text-[14px]">
-      <span class="font-extrabold text-zinc-950">${escapeHtml(m.name)}</span>
+  const mcpsHtml = mcps.slice(0, 3).map(m => `
+    <div class="flex items-center justify-between p-3 rounded-lg border border-[#e4e4e7] bg-white font-mono text-[13px]">
+      <span class="font-bold text-[#111]">${escapeHtml(m.name)}</span>
       <div class="flex items-center gap-2">
-        <code class="px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200 font-bold">${escapeHtml(m.install_command)}</code>
-        <button onclick="copyToClipboard('${escapeHtml(m.install_command)}', this)" class="px-2.5 py-1 rounded-md bg-zinc-200 hover:bg-zinc-950 hover:text-white text-[14px] font-bold transition-colors cursor-pointer">Copy</button>
+        <code class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800">${escapeHtml(m.install_command)}</code>
+        <button onclick="copyToClipboard('${escapeHtml(m.install_command)}', this)" class="px-2 py-0.5 rounded bg-zinc-200 hover:bg-[#111] hover:text-white text-[12px] font-semibold transition-colors cursor-pointer">Copy</button>
       </div>
     </div>
   `).join("");
 
   return `
-    <div class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs space-y-5">
-      <div class="flex items-center justify-between border-b border-zinc-100 pb-4">
-        <div class="flex items-center gap-2.5">
-          <svg class="size-5 text-zinc-800" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <polyline points="9 11 12 14 22 4"></polyline>
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-          </svg>
-          <span class="text-[14px] font-mono font-extrabold tracking-wider uppercase text-zinc-950">
-            PHASED ROADMAP &amp; RESOLVED MCP TOOLING
-          </span>
+    <div class="rounded-xl border border-[#e4e4e7] bg-white p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div class="text-[13px] font-mono font-bold uppercase tracking-wider text-[#111]">
+          Phased Milestones &amp; MCP Stack
         </div>
-        <button onclick="switchView('matrix')" class="text-[14px] font-bold text-zinc-600 hover:text-zinc-950 flex items-center gap-1.5 transition-colors cursor-pointer">
-          <span>View Matrix</span>
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <button onclick="switchView('matrix')" class="text-[13px] font-semibold text-zinc-600 hover:text-[#111] cursor-pointer">
+          Timeline &rarr;
         </button>
       </div>
 
-      <div class="space-y-2.5">
+      <div class="space-y-2">
         ${tasksHtml}
       </div>
 
-      <div class="space-y-3 pt-2 border-t border-zinc-100">
-        <div class="text-[14px] font-mono font-extrabold uppercase tracking-wider text-zinc-500">
-          Recommended Model Context Protocol Servers:
-        </div>
-        <div class="space-y-2.5">
+      <div class="space-y-2 pt-2 border-t border-zinc-100">
+        <div class="text-[12px] font-mono uppercase text-zinc-400 font-semibold">Configured Tools:</div>
+        <div class="space-y-2">
           ${mcpsHtml}
         </div>
       </div>
 
-      <div class="flex items-center gap-3 pt-2">
-        <button onclick="exportMcpConfig()" class="h-10 px-5 rounded-xl bg-zinc-950 text-white text-[14px] font-bold hover:bg-zinc-800 transition-all shadow-2xs flex items-center gap-2 cursor-pointer pace-interactive">
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span>Export mcp_servers.json</span>
+      <div class="flex items-center gap-2 pt-1">
+        <button onclick="exportMcpConfig()" class="h-9 px-4 rounded-lg bg-[#111] text-white text-[13px] font-semibold hover:bg-zinc-800 transition-all cursor-pointer">
+          Export Config
         </button>
-        <button onclick="switchView('channels')" class="h-10 px-5 rounded-xl border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 text-[14px] font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer pace-interactive">
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-          <span>Connect WhatsApp Alerts</span>
+        <button onclick="switchView('channels')" class="h-9 px-4 rounded-lg border border-[#e4e4e7] hover:bg-zinc-50 text-[13px] font-semibold text-zinc-700 transition-all cursor-pointer">
+          Connect Alerts
         </button>
       </div>
     </div>
@@ -380,34 +453,37 @@ function renderTasksAndMcpsCard(meta) {
 function renderBriefingCard(meta) {
   const briefing = meta.briefing || {};
   return `
-    <div class="rounded-2xl border-l-4 border-l-zinc-950 border border-zinc-200 bg-white p-6 shadow-xs space-y-3">
-      <div class="text-[14px] font-mono font-extrabold tracking-wider uppercase text-zinc-500">
+    <div class="rounded-xl border-l-4 border-l-[#111] border border-[#e4e4e7] bg-white p-5 space-y-2">
+      <div class="text-[12px] font-mono uppercase text-zinc-500 font-bold">
         ${escapeHtml(briefing.header || 'EXECUTIVE BRIEFING')}
       </div>
-      <div class="text-[15px] font-extrabold text-zinc-950 leading-snug">
+      <div class="text-[14px] font-bold text-[#111] leading-snug">
         ${escapeHtml(briefing.message || '')}
       </div>
-      <button onclick="switchView('matrix')" class="text-[14px] font-bold text-zinc-700 hover:text-zinc-950 underline pt-1 inline-flex items-center gap-1.5 cursor-pointer">
-        <span>Inspect Schedule Timeline</span>
-        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      <button onclick="switchView('matrix')" class="text-[13px] font-semibold text-zinc-600 hover:text-[#111] underline pt-1 cursor-pointer">
+        Inspect Schedule Timeline
       </button>
     </div>
   `;
 }
 
+// ── Sending Messages with Real-Time Streaming & Thinking Dots ──────────
+
 async function handleSend(e) {
   if (e) e.preventDefault();
+  if (state.isProcessing) return;
+
   const input = document.getElementById("chat-input");
   const text = input.value.trim();
   if (!text) return;
 
   input.value = "";
+  state.isProcessing = true;
 
-  // Hide hero command deck if visible
   const heroDeck = document.getElementById("hero-command-deck");
   if (heroDeck) heroDeck.classList.add("hidden");
 
-  // Optimistic User Message
+  // Optimistic User Bubble
   state.chatHistory.push({
     role: "user",
     content: text,
@@ -416,48 +492,149 @@ async function handleSend(e) {
   });
   renderChat();
 
-  // Show Typing Indicator
+  // Sidebar Thinking Animation
+  const startTime = Date.now();
+  updateModelActivity('thinking', `Reasoning with ${state.activeModel}...`);
+
+  // Insert In-Chat Thinking Indicator
   const container = document.getElementById("chat-history");
-  const typingRow = document.createElement("div");
-  typingRow.id = "typing-indicator";
-  typingRow.className = "flex items-start gap-4 max-w-xl animate-fadeIn";
-  typingRow.innerHTML = `
-    <div class="size-9 rounded-xl bg-zinc-950 flex items-center justify-center text-white shrink-0 shadow-xs mt-0.5">
-      <svg class="size-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
-        <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-        <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+  const thinkingRow = document.createElement("div");
+  thinkingRow.id = "thinking-bubble";
+  thinkingRow.className = "flex items-start gap-4 max-w-3xl animate-fadeIn my-6";
+  thinkingRow.innerHTML = `
+    <div class="size-8 rounded-lg bg-[#111] flex items-center justify-center text-white shrink-0 mt-0.5">
+      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
       </svg>
     </div>
-    <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-3.5 text-[14px] font-mono font-bold text-zinc-600 flex items-center gap-2.5 shadow-2xs">
-      <span>CHRONOS analyzing criteria &amp; scheduling...</span>
+    <div class="flex-1 space-y-2">
+      <div id="streaming-text-target" class="text-[15px] text-[#111] leading-relaxed message-content">
+        <span class="thinking-wave">
+          <span class="thinking-dot"></span>
+          <span class="thinking-dot"></span>
+          <span class="thinking-dot"></span>
+        </span>
+        <span class="ml-2 text-[13px] font-mono text-zinc-400 font-semibold">Thinking with ${escapeHtml(state.activeModel)}...</span>
+      </div>
     </div>
   `;
-  container.appendChild(typingRow);
+  container.appendChild(thinkingRow);
   scrollToBottom();
 
+  // Determine if this is an event creation or special keyword that needs backend pipeline
+  const isUrl = /https?:\/\/[^\s<>"]+/i.test(text);
+  const isScoping = state.activeEvent && ["track", "python", "backend", "frontend", "solo", "team"].some(k => text.toLowerCase().includes(k));
+
+  if (isUrl || isScoping) {
+    // Pipeline route (scrape or decomposition card)
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+      
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      updateModelActivity('idle', `Completed in ${elapsed}s`);
+
+      thinkingRow.remove();
+      state.chatHistory.push(data);
+      renderChat();
+
+      await loadBriefing();
+      await loadEventsAndRadar();
+      await loadCalendar();
+      await loadMcps();
+    } catch (err) {
+      thinkingRow.remove();
+      updateModelActivity('idle', 'Error occurred');
+      console.error("Chat error:", err);
+    } finally {
+      state.isProcessing = false;
+    }
+    return;
+  }
+
+  // Real-Time Streaming Route
   try {
-    const res = await fetch("/api/chat", {
+    const res = await fetch("/api/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text })
     });
-    const data = await res.json();
-    
-    const typingElem = document.getElementById("typing-indicator");
-    if (typingElem) typingElem.remove();
 
-    if (data.reply) {
-      state.chatHistory.push(data.reply);
-      renderChat();
-      loadBriefing();
-      loadEventsAndRadar();
-      loadCalendar();
+    if (!res.ok) throw new Error("Stream error " + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let accumulatedText = "";
+    let firstToken = true;
+
+    const streamTarget = document.getElementById("streaming-text-target");
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const dataStr = line.slice(6).trim();
+        if (dataStr === "[DONE]") break;
+
+        try {
+          const parsed = JSON.parse(dataStr);
+          if (parsed.token) {
+            if (firstToken) {
+              firstToken = false;
+              updateModelActivity('streaming', 'Generating tokens...');
+              if (streamTarget) streamTarget.innerHTML = '';
+            }
+            accumulatedText += parsed.token;
+            if (streamTarget) {
+              streamTarget.innerHTML = formatMarkdown(accumulatedText) + '<span class="streaming-cursor"></span>';
+              scrollToBottom();
+            }
+          }
+        } catch (e) {}
+      }
     }
-  } catch (err) {
-    console.error("Chat error:", err);
-    const typingElem = document.getElementById("typing-indicator");
-    if (typingElem) typingElem.remove();
-    alert("Connection error. Ensure local Sentinel backend is active.");
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    updateModelActivity('idle', `Response in ${elapsed}s`);
+
+    thinkingRow.remove();
+    state.chatHistory.push({
+      role: "assistant",
+      content: accumulatedText || "Analysis completed.",
+      card_type: null,
+      metadata: {}
+    });
+    renderChat();
+
+  } catch (streamErr) {
+    console.warn("Streaming unavailable, falling back to REST /api/chat:", streamErr);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+      thinkingRow.remove();
+      state.chatHistory.push(data);
+      renderChat();
+    } catch (restErr) {
+      thinkingRow.remove();
+      alert("Error contacting local CHRONOS engine: " + restErr);
+    }
+    updateModelActivity('idle', 'Model idle');
+  } finally {
+    state.isProcessing = false;
   }
 }
 
@@ -487,7 +664,7 @@ async function toggleTaskInChat(taskId, isDone) {
 }
 
 async function resetChat() {
-  if (confirm("Reset current chat stream?")) {
+  if (confirm("Reset current conversation session?")) {
     await fetch("/api/chat/reset", { method: "POST" });
     state.chatHistory = [];
     renderChat();
@@ -496,12 +673,11 @@ async function resetChat() {
 
 function scrollToBottom() {
   const container = document.getElementById("chat-history");
-  if (container) {
-    container.scrollTop = container.scrollHeight;
-  }
+  if (container) container.scrollTop = container.scrollHeight;
 }
 
-// VIEW 2: Full Timeline Calendar Data
+// ── Timeline Calendar View ─────────────────────────────────────────────
+
 async function loadCalendar() {
   try {
     const res = await fetch("/api/calendar");
@@ -518,39 +694,64 @@ function renderFullCalendar() {
   if (!container) return;
 
   if (state.calendar.length === 0) {
-    container.innerHTML = '<div class="text-[14px] text-zinc-500 font-bold p-6 bg-zinc-50 rounded-2xl border border-zinc-200">No schedule items yet. Ingest an event link in Chat Sentinel.</div>';
+    container.innerHTML = '<div class="text-[14px] text-zinc-500 p-6 bg-zinc-50 rounded-xl border border-[#e4e4e7]">No schedule items yet. Ingest an event link in Chat.</div>';
     return;
   }
 
   container.innerHTML = state.calendar.map(item => {
     const isDeadline = item.type === 'event_deadline';
     return `
-      <div class="p-5 rounded-2xl border border-zinc-200 ${isDeadline ? 'bg-zinc-50 border-l-6 border-l-zinc-950' : 'bg-white'} space-y-2 shadow-2xs">
+      <div class="p-4 rounded-xl border border-[#e4e4e7] ${isDeadline ? 'bg-zinc-50 border-l-4 border-l-[#111]' : 'bg-white'} space-y-1.5 shadow-2xs">
         <div class="flex items-center justify-between">
-          <span class="text-[14px] font-mono font-bold text-zinc-500">${item.date || 'TBD'}</span>
-          <span class="px-2.5 py-0.5 rounded-md text-[14px] font-mono font-bold ${isDeadline ? 'bg-zinc-950 text-white' : 'bg-zinc-100 text-zinc-800'}">
-            ${isDeadline ? 'FINAL DEADLINE' : 'PHASE MILESTONE'}
+          <span class="text-[13px] font-mono text-zinc-500 font-semibold">${item.date || 'TBD'}</span>
+          <span class="px-2 py-0.5 rounded text-[12px] font-mono font-bold ${isDeadline ? 'bg-[#111] text-white' : 'bg-zinc-100 text-[#111]'}">
+            ${isDeadline ? 'FINAL DEADLINE' : 'MILESTONE'}
           </span>
         </div>
-        <div class="text-[16px] font-extrabold text-zinc-950">
+        <div class="text-[15px] font-bold text-[#111]">
           ${escapeHtml(item.title)}
         </div>
         ${item.assigned_mcp ? `
-          <div class="text-[14px] font-mono text-zinc-600 font-bold">
-            Assigned Tool: <span class="text-zinc-950">${escapeHtml(item.assigned_mcp)}</span>
+          <div class="text-[13px] font-mono text-zinc-600 font-semibold">
+            Assigned Tool: <span class="text-[#111]">${escapeHtml(item.assigned_mcp)}</span>
           </div>` : ''}
       </div>
     `;
   }).join("");
 }
 
-// VIEW 3: Full MCP Catalog Data
+// ── MCP Catalog View ───────────────────────────────────────────────────
+
 async function loadMcps() {
   try {
     const res = await fetch("/api/mcps");
     state.mcps = await res.json();
+    
+    // Update sidebar stack (top 3)
+    const listEl = document.getElementById("sidebar-mcp-list");
+    const moreEl = document.getElementById("sidebar-mcp-more");
+    if (listEl) {
+      const top3 = state.mcps.slice(0, 3);
+      listEl.innerHTML = top3.map(m => `
+        <div class="flex items-center justify-between text-[13px] font-mono">
+          <span class="text-zinc-600 truncate">${escapeHtml(m.mcp_name)}</span>
+          <span class="size-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+        </div>
+      `).join("");
+      
+      if (moreEl) {
+        if (state.mcps.length > 3) {
+          moreEl.classList.remove("hidden");
+          moreEl.textContent = `+${state.mcps.length - 3} more tools`;
+        } else {
+          moreEl.classList.add("hidden");
+        }
+      }
+    }
+
     const countEl = document.getElementById("sidebar-mcp-count");
     if (countEl) countEl.textContent = state.mcps.length;
+
     if (state.activeView === 'mcps') renderFullMcps();
   } catch (err) {
     console.error("Failed to load MCPs:", err);
@@ -562,24 +763,24 @@ function renderFullMcps() {
   if (!container) return;
 
   if (state.mcps.length === 0) {
-    container.innerHTML = '<div class="text-[14px] text-zinc-500 font-bold col-span-2 p-6 bg-zinc-50 rounded-2xl border border-zinc-200">No active MCP configurations. Drop an event link in chat to auto-generate.</div>';
+    container.innerHTML = '<div class="text-[14px] text-zinc-500 col-span-2 p-6 bg-zinc-50 rounded-xl border border-[#e4e4e7]">No active MCP configurations yet. Ingest an event to generate.</div>';
     return;
   }
 
   container.innerHTML = state.mcps.map(m => `
-    <div class="p-6 rounded-2xl border border-zinc-200 bg-white space-y-3.5 shadow-xs">
+    <div class="p-5 rounded-xl border border-[#e4e4e7] bg-white space-y-3 shadow-2xs">
       <div class="flex items-center justify-between">
-        <span class="text-[16px] font-extrabold text-zinc-950">${escapeHtml(m.mcp_name)}</span>
-        <span class="px-3 py-1 rounded-full text-[14px] font-mono font-bold bg-zinc-100 text-zinc-800 border border-zinc-200">
+        <span class="text-[15px] font-bold text-[#111]">${escapeHtml(m.mcp_name)}</span>
+        <span class="px-2 py-0.5 rounded text-[12px] font-mono font-semibold bg-zinc-100 text-[#111]">
           ${m.is_installed ? 'Installed' : 'Ready'}
         </span>
       </div>
-      <p class="text-[14px] text-zinc-600 leading-relaxed font-bold">${escapeHtml(m.description)}</p>
+      <p class="text-[13px] text-zinc-600 leading-relaxed font-bold">${escapeHtml(m.description)}</p>
       <div class="flex items-center gap-2 pt-1">
-        <code class="flex-1 text-[14px] font-mono font-bold p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-900 truncate">
+        <code class="flex-1 text-[13px] font-mono font-semibold p-2 rounded bg-zinc-50 border border-[#e4e4e7] text-[#111] truncate">
           ${escapeHtml(m.install_command)}
         </code>
-        <button onclick="copyToClipboard('${escapeHtml(m.install_command)}', this)" class="px-3.5 py-2.5 rounded-xl bg-zinc-950 text-white text-[14px] font-bold hover:bg-zinc-800 transition-colors cursor-pointer shrink-0">
+        <button onclick="copyToClipboard('${escapeHtml(m.install_command)}', this)" class="px-3 py-1.5 rounded bg-[#111] text-white text-[13px] font-semibold hover:bg-zinc-800 transition-colors cursor-pointer shrink-0">
           Copy
         </button>
       </div>
@@ -587,14 +788,15 @@ function renderFullMcps() {
   `).join("");
 }
 
-// VIEW 4: Channels & Socials
+// ── Notification Channels & Pings ──────────────────────────────────────
+
 async function loadChannels() {
   try {
     const res = await fetch("/api/channels");
     state.channels = await res.json();
     const badge = document.getElementById("sidebar-channel-badge");
     if (badge) {
-      badge.className = state.channels.length > 0 ? "size-2 rounded-full bg-emerald-500" : "size-2 rounded-full bg-zinc-400";
+      badge.className = state.channels.length > 0 ? "size-1.5 rounded-full bg-emerald-500" : "size-1.5 rounded-full bg-zinc-300";
     }
     if (state.activeView === 'channels') renderFullChannels();
   } catch (err) {
@@ -607,19 +809,19 @@ function renderFullChannels() {
   if (!container) return;
 
   if (state.channels.length === 0) {
-    container.innerHTML = '<div class="text-[14px] text-zinc-400 font-bold col-span-2">No external channels linked yet. Configure above.</div>';
+    container.innerHTML = '<div class="text-[14px] text-zinc-400 col-span-2">No external channels linked yet. Configure above.</div>';
     return;
   }
 
   container.innerHTML = state.channels.map(ch => `
-    <div class="flex items-center justify-between p-4 rounded-xl border border-zinc-200 bg-white shadow-2xs">
+    <div class="flex items-center justify-between p-3.5 rounded-xl border border-[#e4e4e7] bg-white shadow-2xs">
       <div>
-        <span class="text-[14px] font-mono font-extrabold uppercase text-zinc-950">[${escapeHtml(ch.platform)}]</span>
-        <span class="text-[14px] text-zinc-700 ml-2 font-mono font-bold">${escapeHtml(ch.target)}</span>
+        <span class="text-[13px] font-mono font-bold uppercase text-[#111]">[${escapeHtml(ch.platform)}]</span>
+        <span class="text-[13px] text-zinc-700 ml-2 font-mono font-semibold">${escapeHtml(ch.target)}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="testChannelPing(${ch.id})" class="h-8.5 px-3.5 rounded-lg border border-zinc-200 hover:bg-zinc-100 text-[14px] font-bold text-zinc-800 transition-colors cursor-pointer">Ping</button>
-        <button onclick="deleteChannel(${ch.id})" class="h-8.5 w-8.5 rounded-lg border border-zinc-200 hover:bg-zinc-100 text-[14px] text-zinc-400 hover:text-zinc-950 flex items-center justify-center transition-colors cursor-pointer">&times;</button>
+        <button onclick="testChannelPing(${ch.id})" class="h-8 px-3 rounded-lg border border-[#e4e4e7] hover:bg-zinc-50 text-[13px] font-semibold text-zinc-800 transition-colors cursor-pointer">Ping</button>
+        <button onclick="deleteChannel(${ch.id})" class="h-8 w-8 rounded-lg border border-[#e4e4e7] hover:bg-zinc-50 text-[14px] text-zinc-400 hover:text-[#111] flex items-center justify-center transition-colors cursor-pointer">&times;</button>
       </div>
     </div>
   `).join("");
@@ -685,7 +887,7 @@ async function exportMcpConfig() {
   try {
     const res = await fetch("/api/mcps/export-config", { method: "POST" });
     const data = await res.json();
-    alert(`Configuration exported successfully to:\n${data.filepath}`);
+    alert(`Configuration exported to:\n${data.filepath}`);
   } catch (err) {
     alert("Export failed: " + err);
   }
@@ -699,21 +901,22 @@ function copyToClipboard(text, btn) {
   });
 }
 
-// Helper: Clean Markdown formatting with Word-doc sizing & Satoshi Bold pills
+// ── Markdown Parser ────────────────────────────────────────────────────
+
 function formatMarkdown(text) {
   if (!text) return "";
   let html = escapeHtml(text);
 
   // Bold
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-extrabold text-zinc-950">$1</strong>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-extrabold text-[#111]">$1</strong>');
   // Inline Code
-  html = html.replace(/`(.*?)`/g, '<code class="font-mono text-[14px] font-bold bg-zinc-100 text-zinc-900 border border-zinc-200/90 px-2 py-0.5 rounded-md">$1</code>');
-  // Numbered list items (e.g. 1. Question text)
-  html = html.replace(/^(\d+)\.\s+(.*)$/gm, '<div class="flex items-start gap-3 my-2.5"><span class="shrink-0 font-mono text-[14px] font-extrabold text-zinc-950 bg-zinc-100 rounded-lg px-2.5 py-1 border border-zinc-300">$1</span><span class="text-zinc-900 text-[15px] font-bold leading-relaxed">$2</span></div>');
-  // Bullet list items (- or *)
-  html = html.replace(/^[-*]\s+(.*)$/gm, '<div class="flex items-start gap-3 my-2"><span class="size-2 rounded-full bg-zinc-950 mt-2 shrink-0"></span><span class="text-zinc-900 text-[15px] font-bold leading-relaxed">$1</span></div>');
+  html = html.replace(/`(.*?)`/g, '<code class="font-mono text-[13px] bg-zinc-100 text-[#111] border border-[#e4e4e7] px-1.5 py-0.5 rounded">$1</code>');
+  // Numbered list items
+  html = html.replace(/^(\d+)\.\s+(.*)$/gm, '<div class="flex items-start gap-2.5 my-2"><span class="shrink-0 font-mono text-[13px] font-bold text-[#111] bg-zinc-100 rounded px-1.5 py-0.5 border border-[#e4e4e7]">$1</span><span class="text-[#111] text-[15px] font-bold leading-relaxed">$2</span></div>');
+  // Bullet list items
+  html = html.replace(/^[-*]\s+(.*)$/gm, '<div class="flex items-start gap-2.5 my-1.5"><span class="size-1.5 rounded-full bg-[#111] mt-2 shrink-0"></span><span class="text-[#111] text-[15px] font-bold leading-relaxed">$1</span></div>');
   // Paragraphs & Line breaks
-  html = html.replace(/\n\n/g, '<div class="h-3"></div>');
+  html = html.replace(/\n\n/g, '<div class="h-2.5"></div>');
   html = html.replace(/\n/g, '<br>');
 
   return html;
