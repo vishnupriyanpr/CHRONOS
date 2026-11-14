@@ -340,7 +340,9 @@ def get_calendar_matrix():
         entries.append({
             "type": "event_deadline",
             "id": f"event-{ev['id']}",
-            "title": f"[DEADLINE] {ev['title']}",
+            "event_id": ev["id"],
+            "title": ev["title"],
+            "description": ev.get("description", ""),
             "date": ev["deadline"],
             "category": ev.get("category", "hackathon"),
             "status": ev.get("status", "active")
@@ -351,9 +353,12 @@ def get_calendar_matrix():
             entries.append({
                 "type": "task_due",
                 "id": f"task-{t['id']}",
-                "title": f"[MILESTONE] {t['title']}",
+                "task_id": t["id"],
+                "event_id": t.get("event_id"),
+                "title": t["title"].replace("[MILESTONE] ", ""),
+                "description": t.get("description", ""),
                 "date": t["due_date"],
-                "phase": t.get("phase", ""),
+                "phase": t.get("phase", "Phase 1: Setup"),
                 "priority": t.get("priority", "high"),
                 "status": t.get("status", "pending"),
                 "assigned_mcp": t.get("assigned_mcp", "")

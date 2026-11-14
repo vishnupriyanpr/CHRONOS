@@ -11,12 +11,13 @@ let state = {
   calendar: [],
   mcps: [],
   models: [],
-  activeModel: 'qwen3.5:9b',
+  activeModel: 'qwen2.5:3b',
   activeProvider: 'ollama',
   briefing: null,
   activeEvent: null,
   targetDeadline: null,
-  isProcessing: false
+  isProcessing: false,
+  timelineFilter: 'all'
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -54,28 +55,31 @@ function startLiveClock() {
 
 function startRadarCountdown() {
   const cdEl = document.getElementById("radar-countdown");
+  const timelineCdEl = document.getElementById("timeline-countdown-display");
   setInterval(() => {
+    let text = "--:--:--";
     if (!state.targetDeadline) {
-      if (cdEl) cdEl.textContent = "--:--:--";
-      return;
-    }
-    const now = new Date();
-    const diff = state.targetDeadline - now;
-    if (diff <= 0) {
-      if (cdEl) cdEl.textContent = "DEADLINE REACHED";
-      return;
-    }
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    const mins = Math.floor((diff / (1000 * 60)) % 60);
-    const secs = Math.floor((diff / 1000) % 60);
-    if (cdEl) {
-      if (days > 0) {
-        cdEl.textContent = `${days}d ${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+      text = "--:--:--";
+    } else {
+      const now = new Date();
+      const diff = state.targetDeadline - now;
+      if (diff <= 0) {
+        text = "DEADLINE REACHED";
       } else {
-        cdEl.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const mins = Math.floor((diff / (1000 * 60)) % 60);
+        const secs = Math.floor((diff / 1000) % 60);
+        if (days > 0) {
+          text = `${days}d ${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+        } else {
+          text = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
       }
     }
+    if (cdEl) cdEl.textContent = text;
+    const tEl = document.getElementById("timeline-countdown-display");
+    if (tEl) tEl.textContent = text;
   }, 1000);
 }
 
@@ -689,35 +693,318 @@ async function loadCalendar() {
   }
 }
 
+function setTimelineFilter(filter) {
+  state.timelineFilter = filter;
+  ['all', 'pending', 'done', 'deadlines'].forEach(f => {
+    const btn = document.getElementById(`filter-${f}`);
+    if (btn) {
+      if (f === filter) {
+        btn.className = "filter-btn filter-btn-active";
+      } else {
+        btn.className = "filter-btn";
+      }
+    }
+  });
+  renderFullCalendar();
+}
+
+function toggleAddTaskForm() {
+  const form = document.getElementById("timeline-add-form");
+  if (form) form.classList.toggle("hidden");
+}
+
+async function handleCreateCustomTask(e) {
+  if (e) e.preventDefault();
+  const eventId = state.activeEvent ? state.activeEvent.id : 1;
+  const title = document.getElementById("new-task-title")?.value?.trim();
+  const phase = document.getElementById("new-task-phase")?.value || "Phase 1: Setup";
+  const dueDate = document.getElementById("new-task-due")?.value?.trim() || "";
+  const assignedMcp = document.getElementById("new-task-mcp")?.value?.trim() || "";
+  const priority = document.getElementById("new-task-priority")?.value || "high";
+
+  if (!title) return;
+
+  try {
+    await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_id: eventId,
+        title,
+        phase,
+        due_date: dueDate,
+        assigned_mcp: assignedMcp,
+        priority
+      })
+    });
+
+    // Reset and close
+    document.getElementById("new-task-title").value = "";
+    document.getElementById("new-task-due").value = "";
+    document.getElementById("new-task-mcp").value = "";
+    toggleAddTaskForm();
+
+    await loadCalendar();
+    await loadEventsAndRadar();
+    renderFullCalendar();
+  } catch (err) {
+    alert("Failed to create task: " + err);
+  }
+}
+
+async function deleteTaskInTimeline(taskId) {
+  if (!confirm("Delete this milestone?")) return;
+  try {
+    await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+    await loadCalendar();
+    await loadEventsAndRadar();
+    renderFullCalendar();
+  } catch (err) {
+    alert("Delete failed: " + err);
+  }
+}
+
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const target = new Date(dateStr.replace(" ", "T"));
+    const now = new Date();
+    const diffMs = target - now;
+    const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+
+    if (diffMs < 0) {
+      const pastHours = Math.abs(diffHours);
+      if (pastHours < 24) return `${pastHours}h overdue`;
+      return `${Math.round(pastHours / 24)}d overdue`;
+    }
+    if (diffHours < 1) return `Due in < 1 hour`;
+    if (diffHours < 24) return `Due in ${diffHours} hours`;
+    const days = Math.round(diffHours / 24);
+    return `Due in ${days} days`;
+  } catch (e) {
+    return "";
+  }
+}
+
 function renderFullCalendar() {
   const container = document.getElementById("full-calendar-list");
   if (!container) return;
 
-  if (state.calendar.length === 0) {
-    container.innerHTML = '<div class="text-[14px] text-zinc-500 p-6 bg-zinc-50 rounded-xl border border-[#e4e4e7]">No schedule items yet. Ingest an event link in Chat.</div>';
+  // 1. Update Metrics in View Header
+  const tasks = state.calendar.filter(i => i.type === 'task_due');
+  const deadlines = state.calendar.filter(i => i.type === 'event_deadline');
+  const completed = tasks.filter(t => t.status === 'done').length;
+  const pct = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+
+  const totalBadge = document.getElementById("timeline-total-badge");
+  if (totalBadge) totalBadge.textContent = `${tasks.length} Milestones`;
+
+  const countdownDisp = document.getElementById("timeline-countdown-display");
+  const radarCountdown = document.getElementById("radar-countdown");
+  if (countdownDisp && radarCountdown) {
+    countdownDisp.textContent = radarCountdown.textContent;
+  }
+
+  const eventNameDisp = document.getElementById("timeline-event-name");
+  if (eventNameDisp && state.activeEvent) {
+    eventNameDisp.textContent = state.activeEvent.title;
+  }
+
+  const ratioDisp = document.getElementById("timeline-progress-ratio");
+  const barFill = document.getElementById("timeline-bar-fill");
+  const detailDisp = document.getElementById("timeline-progress-detail");
+  if (ratioDisp) ratioDisp.textContent = `${pct}%`;
+  if (barFill) barFill.style.width = `${pct}%`;
+  if (detailDisp) detailDisp.textContent = `${completed} of ${tasks.length} milestones cleared`;
+
+  const toolCountDisp = document.getElementById("timeline-tool-count");
+  if (toolCountDisp) toolCountDisp.textContent = `${state.mcps.length} Tools Mapped`;
+
+  // 2. Filter Calendar Items
+  let filtered = state.calendar;
+  if (state.timelineFilter === 'pending') {
+    filtered = state.calendar.filter(i => i.type === 'task_due' && i.status !== 'done');
+  } else if (state.timelineFilter === 'done') {
+    filtered = state.calendar.filter(i => i.type === 'task_due' && i.status === 'done');
+  } else if (state.timelineFilter === 'deadlines') {
+    filtered = state.calendar.filter(i => i.type === 'event_deadline');
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="text-[14px] text-zinc-500 p-8 bg-zinc-50 rounded-xl border border-[#e4e4e7] space-y-2">
+        <div class="text-[15px] font-bold text-[#111]">No milestones match the current filter.</div>
+        <div class="text-zinc-400">Switch filter tabs above or click "+ Add Milestone" to schedule a task.</div>
+      </div>
+    `;
     return;
   }
 
-  container.innerHTML = state.calendar.map(item => {
+  let stepNumber = 0;
+  container.innerHTML = filtered.map(item => {
     const isDeadline = item.type === 'event_deadline';
+
+    if (isDeadline) {
+      return `
+        <div class="relative pl-10 my-8">
+          <div class="timeline-item-node deadline">
+            <svg class="size-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div class="p-6 rounded-xl border-2 border-[#111] bg-white space-y-3 shadow-md">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-1 rounded-md text-[12px] font-mono font-extrabold bg-[#111] text-white tracking-wider">
+                  FINAL TARGET DEADLINE
+                </span>
+                <span class="text-[13px] font-mono font-bold text-zinc-500">
+                  Buffer Lock Active
+                </span>
+              </div>
+              <div class="text-[14px] font-mono font-extrabold text-[#111]">
+                ${escapeHtml(item.date)}
+              </div>
+            </div>
+
+            <div class="text-lg font-extrabold text-[#111] leading-tight">
+              ${escapeHtml(item.title)}
+            </div>
+
+            ${item.description ? `
+              <p class="text-[14px] text-zinc-600 leading-relaxed font-bold">
+                ${escapeHtml(item.description)}
+              </p>
+            ` : ''}
+
+            <div class="flex flex-wrap items-center gap-3 pt-2 text-[13px] font-mono font-bold text-zinc-500">
+              <span class="inline-flex items-center gap-1.5 text-emerald-600">
+                <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Automated SAR &amp; Portal Lock Freeze</span>
+              </span>
+              <span>·</span>
+              <span>Local Daemon Monitoring 24/7</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    stepNumber += 1;
+    const isDone = item.status === 'done';
+    const relativeTime = formatRelativeTime(item.date);
+
+    // Phase styling
+    let phaseBadgeClass = "bg-zinc-100 text-[#111]";
+    if (item.phase && item.phase.includes("Phase 2")) phaseBadgeClass = "bg-[#111] text-white";
+    if (item.phase && item.phase.includes("Phase 4")) phaseBadgeClass = "bg-emerald-100 text-emerald-900 border border-emerald-300";
+
     return `
-      <div class="p-4 rounded-xl border border-[#e4e4e7] ${isDeadline ? 'bg-zinc-50 border-l-4 border-l-[#111]' : 'bg-white'} space-y-1.5 shadow-2xs">
-        <div class="flex items-center justify-between">
-          <span class="text-[13px] font-mono text-zinc-500 font-semibold">${item.date || 'TBD'}</span>
-          <span class="px-2 py-0.5 rounded text-[12px] font-mono font-bold ${isDeadline ? 'bg-[#111] text-white' : 'bg-zinc-100 text-[#111]'}">
-            ${isDeadline ? 'FINAL DEADLINE' : 'MILESTONE'}
-          </span>
+      <div class="relative pl-10 my-4 group">
+        <!-- Timeline node dot -->
+        <div class="timeline-item-node ${isDone ? 'completed' : 'pending-active'}">
+          ${isDone ? `
+            <svg class="size-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          ` : `
+            <span class="text-[11px] font-mono font-bold text-[#111]">${stepNumber}</span>
+          `}
         </div>
-        <div class="text-[15px] font-bold text-[#111]">
-          ${escapeHtml(item.title)}
+
+        <!-- Milestone Card -->
+        <div class="p-5 rounded-xl border border-[#e4e4e7] ${isDone ? 'bg-zinc-50/70 border-zinc-200 opacity-60' : 'bg-white hover:border-zinc-400 hover:shadow-subtle'} transition-all space-y-3 shadow-2xs">
+          
+          <!-- Top Row: Phase + Date + Priority -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[12px] font-mono font-bold ${phaseBadgeClass}">
+                ${escapeHtml(item.phase || 'Phase Milestone')}
+              </span>
+              ${item.priority ? `
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono font-extrabold uppercase ${item.priority === 'critical' ? 'bg-red-100 text-red-900 border border-red-200' : 'bg-zinc-100 text-zinc-700'}">
+                  ${item.priority}
+                </span>
+              ` : ''}
+            </div>
+
+            <div class="flex items-center gap-2 text-[13px] font-mono">
+              ${relativeTime ? `
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${relativeTime.includes('overdue') ? 'bg-red-100 text-red-700' : 'bg-zinc-100 text-zinc-600'}">
+                  ${relativeTime}
+                </span>
+              ` : ''}
+              <span class="text-zinc-500 font-semibold">${item.date || 'TBD'}</span>
+            </div>
+          </div>
+
+          <!-- Middle Row: Interactive Checkbox & Title -->
+          <div class="flex items-start gap-3">
+            <input 
+              type="checkbox" 
+              class="accent-[#111] size-5 rounded-md mt-0.5 cursor-pointer shrink-0" 
+              ${isDone ? 'checked' : ''} 
+              onchange="toggleTaskInTimeline(${item.task_id || 0}, this.checked)"
+              title="Mark milestone complete"
+            />
+            <div class="flex-1 space-y-1">
+              <div class="text-[15px] font-extrabold text-[#111] ${isDone ? 'line-through text-zinc-400' : ''}">
+                ${escapeHtml(item.title)}
+              </div>
+              ${item.description ? `
+                <p class="text-[13px] text-zinc-500 leading-relaxed font-bold">
+                  ${escapeHtml(item.description)}
+                </p>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Bottom Row: Assigned Tool Context & Actions -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-zinc-100 text-[13px]">
+            <div class="flex items-center gap-2">
+              ${item.assigned_mcp ? `
+                <div class="flex items-center gap-1.5 font-mono text-[12px] text-zinc-600 font-bold">
+                  <svg class="size-3.5 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                  <span>Tool:</span>
+                  <code class="px-1.5 py-0.5 rounded bg-zinc-100 text-[#111] border border-zinc-200">${escapeHtml(item.assigned_mcp)}</code>
+                </div>
+              ` : `
+                <span class="text-zinc-400 font-mono text-[12px]">No tool assigned</span>
+              `}
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              ${item.task_id ? `
+                <button onclick="deleteTaskInTimeline(${item.task_id})" class="text-[12px] font-mono text-zinc-400 hover:text-red-600 cursor-pointer transition-colors" title="Delete milestone">
+                  Delete
+                </button>
+              ` : ''}
+            </div>
+          </div>
+
         </div>
-        ${item.assigned_mcp ? `
-          <div class="text-[13px] font-mono text-zinc-600 font-semibold">
-            Assigned Tool: <span class="text-[#111]">${escapeHtml(item.assigned_mcp)}</span>
-          </div>` : ''}
       </div>
     `;
   }).join("");
+}
+
+async function toggleTaskInTimeline(taskId, isDone) {
+  if (!taskId) return;
+  const status = isDone ? "done" : "pending";
+  try {
+    await fetch(`/api/tasks/${taskId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status })
+    });
+    await loadCalendar();
+    updateRadarProgress();
+    loadBriefing();
+    renderFullCalendar();
+  } catch (err) {
+    console.error("Failed to update task status:", err);
+  }
 }
 
 // ── MCP Catalog View ───────────────────────────────────────────────────

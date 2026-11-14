@@ -212,3 +212,87 @@ p, span, div, button, input, select, label, code, pre, a, li {
 .pace-interactive:active {
   transform: translateY(0);
 }
+
+/* ==========================================================================
+   TIMELINE MATRIX UI ARCHITECTURE
+   ========================================================================== */
+
+/* Timeline Spine Track */
+.timeline-spine {
+  position: relative;
+  padding-left: 2.25rem;
+}
+
+.timeline-spine::before {
+  content: '';
+  position: absolute;
+  top: 1rem;
+  bottom: 1.5rem;
+  left: 0.85rem;
+  width: 2px;
+  background-color: #e4e4e7;
+  border-radius: 2px;
+}
+
+/* Timeline Milestone Node */
+.timeline-item-node {
+  position: absolute;
+  left: -2.25rem;
+  top: 1.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  border: 2px solid #111111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.timeline-item-node.completed {
+  background-color: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.timeline-item-node.deadline {
+  background-color: #111111;
+  color: #ffffff;
+  border-radius: 6px;
+  transform: rotate(45deg);
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
+}
+.timeline-item-node.deadline > svg {
+  transform: rotate(-45deg);
+}
+
+.timeline-item-node.pending-active {
+  border-color: #111111;
+  box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.12);
+}
+
+/* Filter Pill Controls */
+.filter-btn {
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #71717a;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-btn:hover {
+  color: #111111;
+  background-color: #f4f4f5;
+}
+
+.filter-btn-active {
+  color: #111111 !important;
+  background-color: #f4f4f5 !important;
+  border-color: #e4e4e7 !important;
+}
