@@ -1,15 +1,5 @@
 {
   "mcpServers": {
-    "github": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-github"
-      ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "<GITHUB_PERSONAL_ACCESS_TOKEN_VALUE>"
-      }
-    },
     "filesystem": {
       "command": "npx",
       "args": [
@@ -27,14 +17,25 @@
       ],
       "env": {}
     },
-    "sqlite": {
-      "command": "uvx",
+    "github": {
+      "command": "npx",
       "args": [
-        "mcp-server-sqlite",
-        "--db-path",
-        "chronos.db"
+        "-y",
+        "@modelcontextprotocol/server-github"
       ],
-      "env": {}
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<GITHUB_PERSONAL_ACCESS_TOKEN_VALUE>"
+      }
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-slack"
+      ],
+      "env": {
+        "SLACK_BOT_TOKEN": "<SLACK_BOT_TOKEN_VALUE>"
+      }
     }
   }
 }
