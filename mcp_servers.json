@@ -1,14 +1,5 @@
 {
   "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "."
-      ],
-      "env": {}
-    },
     "chrome-devtools": {
       "command": "npx",
       "args": [
@@ -27,15 +18,14 @@
         "GITHUB_PERSONAL_ACCESS_TOKEN": "<GITHUB_PERSONAL_ACCESS_TOKEN_VALUE>"
       }
     },
-    "slack": {
+    "filesystem": {
       "command": "npx",
       "args": [
         "-y",
-        "@modelcontextprotocol/server-slack"
+        "@modelcontextprotocol/server-filesystem",
+        "."
       ],
-      "env": {
-        "SLACK_BOT_TOKEN": "<SLACK_BOT_TOKEN_VALUE>"
-      }
+      "env": {}
     }
   }
 }
